@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>权重共享 (Weight Tying)</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -8,24 +9,27 @@ body {
     background: linear-gradient(135deg, #1a1b26 0%, #24283b 100%);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     color: #a9b1d6;
-    padding: 40px;
+    padding: 20px;
     min-height: 100vh;
 }
-h1 { color: #7aa2f7; text-align: center; margin-bottom: 40px; font-size: 28px; }
-h2 { color: #bb9af7; margin: 30px 0 20px; font-size: 22px; }
-.container { max-width: 900px; margin: 0 auto; }
-.section { margin-bottom: 40px; }
+h1 { color: #7aa2f7; text-align: center; margin-bottom: 30px; font-size: 24px; }
+h2 { color: #bb9af7; margin: 25px 0 15px; font-size: 20px; }
+.container { max-width: 800px; margin: 0 auto; }
+.section { margin-bottom: 30px; }
 .box {
     background: #1a1b26;
     border: 1px solid #414868;
     border-radius: 8px;
-    padding: 20px;
-    margin: 20px 0;
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 14px;
-    line-height: 1.8;
+    padding: 15px;
+    margin: 15px 0;
     overflow-x: auto;
-    white-space: pre;
+}
+.code-block {
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
 }
 .highlight { color: #f7768e; font-weight: bold; }
 .key { color: #9ece6a; }
@@ -33,52 +37,50 @@ h2 { color: #bb9af7; margin: 30px 0 20px; font-size: 22px; }
 table { 
     width: 100%; 
     border-collapse: collapse; 
-    margin: 20px 0;
+    margin: 15px 0;
     background: #1a1b26;
-    border-radius: 8px;
-    overflow: hidden;
+    font-size: 14px;
 }
 th, td { 
-    padding: 12px 16px; 
+    padding: 10px;
     text-align: left; 
     border-bottom: 1px solid #414868;
 }
 th { background: #24283b; color: #7aa2f7; }
-pre {
-    background: #1a1b26;
-    border: 1px solid #414868;
-    border-radius: 8px;
-    padding: 20px;
-    overflow-x: auto;
-    font-size: 14px;
-    line-height: 1.6;
-}
-code { color: #9ece6a; }
-p { line-height: 1.8; margin: 10px 0; }
-.flow-diagram {
+p { line-height: 1.7; margin: 10px 0; }
+.flow-box {
     background: #1a1b26;
     border: 1px solid #414868;
     border-radius: 12px;
-    padding: 30px;
-    margin: 20px 0;
+    padding: 20px;
+    margin: 15px 0;
     text-align: center;
-    font-family: monospace;
-    font-size: 14px;
-    line-height: 2;
 }
-.flow-diagram .arrow { color: #7aa2f7; }
-.flow-diagram .layer { 
+.flow-item {
     display: inline-block;
     background: #24283b;
     border: 1px solid #7aa2f7;
     border-radius: 8px;
-    padding: 10px 20px;
-    margin: 10px;
+    padding: 8px 15px;
+    margin: 8px;
+    font-size: 14px;
 }
-.flow-diagram .shared {
+.flow-item.shared {
     background: #7b5a2d;
     border-color: #ffaa4a;
 }
+.arrow { color: #7aa2f7; font-size: 20px; display: block; margin: 5px 0; }
+.matrix {
+    display: inline-block;
+    text-align: left;
+    font-family: monospace;
+    font-size: 12px;
+    background: #24283b;
+    padding: 10px;
+    border-radius: 6px;
+    margin: 10px 0;
+}
+.matrix-row { display: block; }
 </style>
 </head>
 <body>
@@ -89,106 +91,104 @@ p { line-height: 1.8; margin: 10px 0; }
         <h2>1️⃣ 什么是权重共享？</h2>
         <p>在 LLM 中，<span class="key">wte</span>（输入 embedding）和 <span class="key">lm_head</span>（输出层）使用<span class="highlight">同一个权重矩阵</span>。</p>
         
-        <div class="flow-diagram">
-            <div class="layer">token_id: 3 ("界")</div>
-            <br><span class="arrow">↓</span><br>
-            <div class="layer shared">wte: 查表取第3行 → [1.0, 1.1, 1.2]</div>
-            <br><span class="arrow">↓</span><br>
-            <div class="layer">Transformer Backbone (N层)</div>
-            <br><span class="arrow">↓</span><br>
-            <div class="layer">hidden_state: [0.5, 0.8, 0.3]</div>
-            <br><span class="arrow">↓</span><br>
-            <div class="layer shared">lm_head: hidden × W<sup>T</sup> → logits</div>
+        <div class="flow-box">
+            <div class="flow-item">token_id: 3 ("界")</div>
+            <span class="arrow">↓</span>
+            <div class="flow-item shared">wte: 查表 → embedding</div>
+            <span class="arrow">↓</span>
+            <div class="flow-item">Transformer (N层)</div>
+            <span class="arrow">↓</span>
+            <div class="flow-item">hidden_state</div>
+            <span class="arrow">↓</span>
+            <div class="flow-item shared">lm_head: hidden × W<sup>T</sup></div>
             <br><br>
-            <div style="color: #ffaa4a;">🔗 橙色框共享同一个权重矩阵 W</div>
+            <div style="color: #ffaa4a; font-size: 13px;">🔗 橙色框共享同一个权重矩阵 W</div>
         </div>
     </div>
     
     <div class="section">
         <h2>2️⃣ 两层做的事情</h2>
         <table>
-            <tr><th>层</th><th>输入</th><th>输出</th><th>操作</th></tr>
+            <tr><th>层</th><th>输入→输出</th><th>操作</th></tr>
             <tr>
                 <td><span class="key">wte</span></td>
-                <td>token_id (整数)</td>
-                <td>embedding 向量</td>
-                <td>查表：取矩阵的第 i 行</td>
+                <td>token_id → 向量</td>
+                <td>查表取第i行</td>
             </tr>
             <tr>
                 <td><span class="key">lm_head</span></td>
-                <td>hidden_state 向量</td>
-                <td>logits (vocab_size 维)</td>
-                <td>矩阵乘法：hidden × W<sup>T</sup></td>
+                <td>hidden → logits</td>
+                <td>hidden × W<sup>T</sup></td>
             </tr>
         </table>
     </div>
     
     <div class="section">
         <h2>3️⃣ 具体例子</h2>
-        <div class="box"><span class="comment">词表: [你, 好, 世, 界]  vocab_size=4, n_embd=3</span>
-
-<span class="key">wte 权重矩阵 W</span> (4×3):
-     dim0  dim1  dim2
-你 [ 0.1,  0.2,  0.3 ]
-好 [ 0.4,  0.5,  0.6 ]
-世 [ 0.7,  0.8,  0.9 ]
-界 [ 1.0,  1.1,  1.2 ]
-
-<span class="highlight">输入阶段 (wte):</span>
-输入 "界" (id=3) → 查表取第3行 → <span class="key">[1.0, 1.1, 1.2]</span>
-
-<span class="highlight">输出阶段 (lm_head):</span>
-hidden_state = [0.5, 0.8, 0.3]  <span class="comment">← Backbone 输出</span>
-
-logits = hidden × W<sup>T</sup>
-       = [0.5, 0.8, 0.3] × [[0.1, 0.4, 0.7, 1.0],
-                            [0.2, 0.5, 0.8, 1.1],
-                            [0.3, 0.6, 0.9, 1.2]]
-
-<span class="key">→ 点积结果就是 hidden 和每个词 embedding 的相似度！</span></div>
+        <p><span class="comment">词表: [你, 好, 世, 界]，vocab_size=4, n_embd=3</span></p>
+        
+        <p><span class="key">wte 权重矩阵 W</span> (4×3):</p>
+        <div class="matrix">
+            <span class="matrix-row">你 [ 0.1, 0.2, 0.3 ]</span>
+            <span class="matrix-row">好 [ 0.4, 0.5, 0.6 ]</span>
+            <span class="matrix-row">世 [ 0.7, 0.8, 0.9 ]</span>
+            <span class="matrix-row">界 [ 1.0, 1.1, 1.2 ]</span>
+        </div>
+        
+        <p><span class="highlight">输入阶段 (wte):</span></p>
+        <div class="box">
+            输入 "界" (id=3)<br>
+            → 查表取第3行<br>
+            → <span class="key">[1.0, 1.1, 1.2]</span>
+        </div>
+        
+        <p><span class="highlight">输出阶段 (lm_head):</span></p>
+        <div class="box">
+            hidden_state = [0.5, 0.8, 0.3]<br><br>
+            logits = hidden × W<sup>T</sup><br><br>
+            <span class="key">→ 点积结果 = hidden 和每个词 embedding 的相似度</span>
+        </div>
     </div>
     
     <div class="section">
         <h2>4️⃣ 为什么有效？</h2>
-        <div class="box"><span class="key">wte 做的事:</span>     token_id  →  语义空间的点
-<span class="key">lm_head 做的事:</span> 语义空间的点 →  和每个词的相似度 (点积)
-
-<span class="highlight">共享权重意味着：</span>
-• 输入 "猫" 得到向量 v_猫
-• 输出时，hidden_state 和 v_猫 越接近，预测 "猫" 的概率越高
-
-💡 如果模型"想说猫"，它的 hidden_state 就应该接近 "猫" 的 embedding</div>
+        <div class="box">
+            <p><span class="key">wte:</span> token_id → 语义空间的点</p>
+            <p><span class="key">lm_head:</span> 语义空间的点 → 和每个词的相似度</p>
+            <br>
+            <p><span class="highlight">共享权重意味着：</span></p>
+            <p>• 输入 "猫" 得到向量 v_猫</p>
+            <p>• 输出时，hidden 和 v_猫 越接近，预测 "猫" 概率越高</p>
+            <br>
+            <p>💡 如果模型"想说猫"，它的 hidden 就应该接近 "猫" 的 embedding</p>
+        </div>
     </div>
     
     <div class="section">
         <h2>5️⃣ 节省多少参数？</h2>
-        <pre><code><span class="comment"># 不共享：两套参数</span>
-wte = nn.Embedding(50000, 768)    <span class="comment"># 50000×768 = 38.4M</span>
-lm_head = nn.Linear(768, 50000)   <span class="comment"># 768×50000 = 38.4M</span>
-<span class="comment"># 总共 76.8M 参数</span>
-
-<span class="comment"># 共享：一套参数</span>
-wte.weight = lm_head.weight       <span class="comment"># 只有 38.4M 参数</span>
-<span class="comment"># <span class="highlight">节省 50%！</span></span></code></pre>
+        <div class="box">
+            <p><span class="comment"># 不共享</span></p>
+            <p>wte: 50000×768 = <span class="highlight">38.4M</span></p>
+            <p>lm_head: 768×50000 = <span class="highlight">38.4M</span></p>
+            <p>总共: 76.8M</p>
+            <br>
+            <p><span class="comment"># 共享</span></p>
+            <p>只有 <span class="key">38.4M</span>，<span class="highlight">节省 50%!</span></p>
+        </div>
     </div>
     
     <div class="section">
-        <h2>6️⃣ nanoGPT 中的实现</h2>
-        <pre><code><span class="comment"># nanoGPT model.py</span>
-class GPT(nn.Module):
-    def __init__(self, config):
-        self.transformer = nn.ModuleDict(dict(
-            wte = nn.Embedding(vocab_size, n_embd),
-            ...
-        ))
-        self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
-        
-        <span class="highlight"># 关键：权重共享</span>
-        self.transformer.wte.weight = self.lm_head.weight</code></pre>
+        <h2>6️⃣ 代码实现</h2>
+        <div class="box code-block"><span class="comment"># nanoGPT model.py</span>
+self.wte = nn.Embedding(vocab_size, n_embd)
+self.lm_head = nn.Linear(n_embd, vocab_size)
+
+<span class="highlight"># 关键：权重共享</span>
+self.wte.weight = self.lm_head.weight</div>
     </div>
     
-    <p style="text-align:center; margin-top:40px; color:#565f89;">
-        这是 GPT-2 论文中的技巧，现已成为 LLM 标配 ✨
+    <p style="text-align:center; margin-top:30px; color:#565f89; font-size: 14px;">
+        GPT-2 论文技巧，现为 LLM 标配 ✨
     </p>
 </div>
 </body></html>
