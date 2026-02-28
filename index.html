@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Jason's Paper Hub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+        }
+        
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .section h2 {
+            color: #00d9ff;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .learning-path {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .path-item {
+            background: linear-gradient(145deg, #1e3a5f, #162d4a);
+            border-radius: 12px;
+            padding: 20px;
+            width: 200px;
+            text-align: center;
+            position: relative;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .path-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 217, 255, 0.2);
+        }
+        
+        .path-item .step {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            background: #00d9ff;
+            color: #1a1a2e;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .path-item h3 {
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        
+        .path-item p {
+            color: #aaa;
+            font-size: 0.9em;
+        }
+        
+        .path-item a {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 8px 16px;
+            background: rgba(0, 217, 255, 0.2);
+            color: #00d9ff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.85em;
+            transition: background 0.3s;
+        }
+        
+        .path-item a:hover {
+            background: rgba(0, 217, 255, 0.4);
+        }
+        
+        .paper-list {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .paper-card {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            transition: background 0.3s;
+        }
+        
+        .paper-card:hover {
+            background: rgba(0, 0, 0, 0.4);
+        }
+        
+        .paper-icon {
+            font-size: 2em;
+            margin-right: 20px;
+        }
+        
+        .paper-info {
+            flex: 1;
+        }
+        
+        .paper-info h3 {
+            color: #fff;
+            margin-bottom: 5px;
+        }
+        
+        .paper-info p {
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        .paper-links {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .paper-links a {
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.85em;
+            transition: all 0.3s;
+        }
+        
+        .btn-notes {
+            background: #00d9ff;
+            color: #1a1a2e;
+        }
+        
+        .btn-pdf {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-notes:hover, .btn-pdf:hover {
+            transform: scale(1.05);
+        }
+        
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .video-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .video-card h4 {
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        
+        .video-card a {
+            color: #00d9ff;
+            text-decoration: none;
+        }
+        
+        .video-card a:hover {
+            text-decoration: underline;
+        }
+        
+        .quick-compare {
+            overflow-x: auto;
+        }
+        
+        .quick-compare table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .quick-compare th, .quick-compare td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .quick-compare th {
+            color: #00d9ff;
+        }
+        
+        .quick-compare tr:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        footer {
+            text-align: center;
+            color: #555;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        @media (max-width: 600px) {
+            .path-item {
+                width: 100%;
+            }
+            .paper-card {
+                flex-direction: column;
+                text-align: center;
+            }
+            .paper-icon {
+                margin-bottom: 10px;
+            }
+            .paper-links {
+                margin-top: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Jason's Paper Hub</h1>
+        <p class="subtitle">Flow Matching & VLA 论文学习中心</p>
+        
+        <div class="section">
+            <h2>🎯 学习路径</h2>
+            <div class="learning-path">
+                <div class="path-item">
+                    <span class="step">1</span>
+                    <h3>Flow Matching</h3>
+                    <p>理解核心数学框架</p>
+                    <a href="papers/flow-matching.html">开始学习 →</a>
+                </div>
+                <div class="path-item">
+                    <span class="step">2</span>
+                    <h3>Diffusion Policy</h3>
+                    <p>动作生成 baseline</p>
+                    <a href="papers/diffusion-policy.html">开始学习 →</a>
+                </div>
+                <div class="path-item">
+                    <span class="step">3</span>
+                    <h3>π0</h3>
+                    <p>VLM + Flow Matching</p>
+                    <a href="papers/pi0.html">开始学习 →</a>
+                </div>
+                <div class="path-item">
+                    <span class="step">4</span>
+                    <h3>自动驾驶 VLA</h3>
+                    <p>应用到你的工作</p>
+                    <a href="#">敬请期待</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📄 论文列表</h2>
+            <div class="paper-list">
+                <div class="paper-card">
+                    <div class="paper-icon">🌊</div>
+                    <div class="paper-info">
+                        <h3>Flow Matching for Generative Modeling</h3>
+                        <p>Lipman et al., Meta AI, 2022 | arxiv: 2210.02747</p>
+                    </div>
+                    <div class="paper-links">
+                        <a href="papers/flow-matching.html" class="btn-notes">📝 笔记</a>
+                        <a href="flow_matching_2210.02747.pdf" class="btn-pdf">📄 PDF</a>
+                    </div>
+                </div>
+                
+                <div class="paper-card">
+                    <div class="paper-icon">🤖</div>
+                    <div class="paper-info">
+                        <h3>π0: Vision-Language-Action Flow Model</h3>
+                        <p>Physical Intelligence, 2024 | arxiv: 2410.24164</p>
+                    </div>
+                    <div class="paper-links">
+                        <a href="papers/pi0.html" class="btn-notes">📝 笔记</a>
+                        <a href="pi0_2410.24164.pdf" class="btn-pdf">📄 PDF</a>
+                    </div>
+                </div>
+                
+                <div class="paper-card">
+                    <div class="paper-icon">🎯</div>
+                    <div class="paper-info">
+                        <h3>Diffusion Policy</h3>
+                        <p>Chi et al., Columbia, 2023 | arxiv: 2303.04137</p>
+                    </div>
+                    <div class="paper-links">
+                        <a href="papers/diffusion-policy.html" class="btn-notes">📝 笔记</a>
+                        <a href="https://arxiv.org/pdf/2303.04137.pdf" class="btn-pdf">📄 PDF</a>
+                    </div>
+                </div>
+                
+                <div class="paper-card">
+                    <div class="paper-icon">🚗</div>
+                    <div class="paper-info">
+                        <h3>DriveVLM: 自动驾驶 + VLM</h3>
+                        <p>清华 + 理想汽车, 2024 | arxiv: 2402.12289</p>
+                    </div>
+                    <div class="paper-links">
+                        <a href="papers/drivevlm.html" class="btn-notes">📝 笔记</a>
+                        <a href="drivevlm_2402.12289.pdf" class="btn-pdf">📄 PDF</a>
+                    </div>
+                </div>
+                
+                <div class="paper-card">
+                    <div class="paper-icon">🧠</div>
+                    <div class="paper-info">
+                        <h3>VQA 训练与 CoT 能力内化机制</h3>
+                        <p>🔬 研究笔记 | 为什么推理时可以不需要 Question？</p>
+                    </div>
+                    <div class="paper-links">
+                        <a href="papers/vqa-cot-internalization.html" class="btn-notes">📝 笔记</a>
+                    </div>
+                </div>
+                
+                <div class="paper-card">
+                    <div class="paper-icon">🧩</div>
+                    <div class="paper-info">
+                        <h3>VLM 模型结构详解</h3>
+                        <p>📐 架构笔记 | Backbone、Head、Multi-Head 的作用与原理</p>
+                    </div>
+                    <div class="paper-links">
+                        <a href="papers/vlm-structure.html" class="btn-notes">📝 笔记</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📊 数据集资源</h2>
+            <div class="paper-list">
+                <div class="paper-card">
+                    <div class="paper-icon">🚗</div>
+                    <div class="paper-info">
+                        <h3>DriveLM-nuScenes</h3>
+                        <p>696 场景 · 4,072 关键帧 · 377,983 QA 标注 | Graph VQA 驾驶数据</p>
+                    </div>
+                    <div class="paper-links">
+                        <a href="datasets/drivelm-viewer.html" class="btn-notes">🔍 浏览数据</a>
+                        <a href="https://github.com/OpenDriveLab/DriveLM" class="btn-pdf" target="_blank">GitHub</a>
+                    </div>
+                </div>
+                
+                <div class="paper-card">
+                    <div class="paper-icon">🗂️</div>
+                    <div class="paper-info">
+                        <h3>nuScenes</h3>
+                        <p>1000 场景 · 140 万帧 · 3D 检测/分割/轨迹预测 | 自动驾驶基准</p>
+                    </div>
+                    <div class="paper-links">
+                        <a href="https://www.nuscenes.org/nuscenes" class="btn-pdf" target="_blank">官网</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>⚡ 快速对比</h2>
+            <div class="quick-compare">
+                <table>
+                    <tr>
+                        <th></th>
+                        <th>Diffusion</th>
+                        <th>Flow Matching</th>
+                    </tr>
+                    <tr>
+                        <td>训练目标</td>
+                        <td>预测噪声 ε</td>
+                        <td>预测速度场 v</td>
+                    </tr>
+                    <tr>
+                        <td>轨迹形状</td>
+                        <td>弯曲（可能绕路）</td>
+                        <td>直线（OT 路径）</td>
+                    </tr>
+                    <tr>
+                        <td>数学框架</td>
+                        <td>SDE</td>
+                        <td>ODE</td>
+                    </tr>
+                    <tr>
+                        <td>采样步数</td>
+                        <td>20-50 步</td>
+                        <td>4-10 步 ✨</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🎬 视频资源</h2>
+            <div class="video-grid">
+                <div class="video-card">
+                    <h4>Flow Matching Tutorial</h4>
+                    <p>Yaron Lipman @ ICML 2023</p>
+                    <a href="https://www.youtube.com/watch?v=5ZSwYogAxYg" target="_blank">▶️ YouTube</a>
+                </div>
+                <div class="video-card">
+                    <h4>π0 演示</h4>
+                    <p>Physical Intelligence 官方</p>
+                    <a href="https://physicalintelligence.company/blog/pi0" target="_blank">▶️ 官网</a>
+                </div>
+                <div class="video-card">
+                    <h4>Yannic Kilcher 讲解</h4>
+                    <p>Flow Matching 论文解读</p>
+                    <a href="https://www.youtube.com/watch?v=DDq_pIfHqLs" target="_blank">▶️ YouTube</a>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Made with ❤️ for Jason's VLA Research</p>
+            <p style="margin-top: 10px; font-size: 0.85em;">Last updated: 2026-02-28</p>
+        </footer>
+    </div>
+</body>
+</html>

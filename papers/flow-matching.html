@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Matching for Generative Modeling</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.8;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.05);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        h1 { 
+            color: #00d9ff; 
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(0,217,255,0.3);
+        }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        h4 { color: #fff; margin: 20px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+        }
+        pre {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        tr:hover { background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote {
+            border-left: 3px solid #00d9ff;
+            padding-left: 20px;
+            margin: 15px 0;
+            color: #aaa;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background: rgba(0,217,255,0.2);
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>Flow Matching for Generative Modeling</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2210.02747">2210.02747</a> | <strong>作者:</strong> Yaron Lipman 等 (Meta AI + Weizmann Institute) | <strong>年份:</strong> 2022</p>
+<h2>一句话总结</h2>
+<p>提出 Flow Matching：一种<strong>无需模拟</strong>的训练方法，让 CNF（连续归一化流）可以像 Diffusion 一样大规模训练，且支持更高效的 OT（最优传输）路径。</p>
+<hr>
+<h2>核心贡献</h2>
+<ol>
+<li><strong>Flow Matching 目标函数</strong> — 直接回归速度场 $v_t(x)$，无需跑 ODE 模拟</li>
+<li><strong>Conditional Flow Matching (CFM)</strong> — 类似 denoising score matching，每个样本独立训练</li>
+<li><strong>OT 路径</strong> — 用最优传输定义直线轨迹，比 diffusion 的弯曲路径更高效</li>
+</ol>
+<hr>
+<h2>Diffusion vs Flow Matching 对比</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Diffusion</th>
+<th>Flow Matching</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>训练目标</strong></td>
+<td>预测噪声 ε 或 score</td>
+<td>预测速度场 v</td>
+</tr>
+<tr>
+<td><strong>轨迹形状</strong></td>
+<td>弯曲（可能绕路）</td>
+<td>直线（OT 路径）</td>
+</tr>
+<tr>
+<td><strong>数学框架</strong></td>
+<td>SDE（随机微分方程）</td>
+<td>ODE（常微分方程）</td>
+</tr>
+<tr>
+<td><strong>采样效率</strong></td>
+<td>需要很多步</td>
+<td>更少步数</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>核心公式</h2>
+<h3>Flow Matching Loss</h3>
+<pre><code>L_FM(θ) = E_{t,p_t(x)} ||v_t(x) - u_t(x)||²
+</code></pre>
+<h3>Conditional Flow Matching Loss（实际使用）</h3>
+<pre><code>L_CFM(θ) = E_{t,q(x₁),p(x₀)} ||v_t(ψ_t(x₀)) - (x₁ - (1-σ)x₀)||²
+</code></pre>
+<h3>OT 路径（直线插值）</h3>
+<pre><code>ψ_t(x) = (1 - (1-σ_min)t)x₀ + t·x₁
+</code></pre>
+<hr>
+<h2>直观理解</h2>
+<ul>
+<li><strong>Diffusion</strong>：加噪 → 学去噪，轨迹是曲线，可能&quot;绕路&quot;</li>
+<li><strong>Flow Matching</strong>：学习&quot;从噪声漂到数据&quot;的速度场</li>
+<li><strong>OT 路径</strong>：让轨迹变成直线，最短路径</li>
+</ul>
+<p>想象一群粒子从噪声分布出发，Flow Matching 告诉每个粒子&quot;往哪走、走多快&quot;，最终到达数据分布。</p>
+<hr>
+<h2>关键结果</h2>
+<ul>
+<li>ImageNet 128×128：FID 和 likelihood 都优于 diffusion 方法</li>
+<li>采样速度：4-10 步出好图（diffusion 通常需要 20-50 步）</li>
+<li>训练收敛：OT 路径比 diffusion 路径更快</li>
+</ul>
+<hr>
+<h2>代码</h2>
+<ul>
+<li><strong>官方实现：</strong> <a href="https://github.com/facebookresearch/flow_matching">https://github.com/facebookresearch/flow_matching</a></li>
+<li><strong>框架：</strong> PyTorch</li>
+</ul>
+<hr>
+<h2>视频教程</h2>
+<ol>
+<li><p><strong>Yaron Lipman ICML 2023 Tutorial（作者本人）</strong></p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=5ZSwYogAxYg">https://www.youtube.com/watch?v=5ZSwYogAxYg</a></li>
+</ul>
+</li>
+<li><p><strong>Yannic Kilcher 讲解</strong></p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=DDq_pIfHqLs">https://www.youtube.com/watch?v=DDq_pIfHqLs</a></li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>推荐阅读顺序</h2>
+<ol>
+<li><strong>Section 1-2</strong>：背景 + CNF 基础</li>
+<li><strong>Section 3</strong>：Flow Matching 核心（重点看 3.2 CFM）</li>
+<li><strong>Section 4.1 Example II</strong>：OT 路径（精华！）</li>
+<li><strong>Figure 2-4</strong>：直观对比 diffusion vs OT</li>
+</ol>
+<hr>
+<h2>下载</h2>
+<p>📄 <a href="../flow_matching_2210.02747.pdf">flow_matching_2210.02747.pdf</a></p>
+
+    </div>
+</body>
+</html>

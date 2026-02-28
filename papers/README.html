@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 论文学习中心</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.8;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.05);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        h1 { 
+            color: #00d9ff; 
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(0,217,255,0.3);
+        }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        h4 { color: #fff; margin: 20px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+        }
+        pre {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        tr:hover { background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote {
+            border-left: 3px solid #00d9ff;
+            padding-left: 20px;
+            margin: 15px 0;
+            color: #aaa;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background: rgba(0,217,255,0.2);
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>📚 论文学习中心</h1>
+<h2>🎯 学习路径：Flow Matching → VLA</h2>
+<pre><code>                    ┌─────────────────────────────────┐
+                    │     1. Flow Matching 基础        │
+                    │     (2210.02747)                │
+                    │     理解核心数学框架              │
+                    └───────────────┬─────────────────┘
+                                    │
+                    ┌───────────────▼─────────────────┐
+                    │     2. Diffusion Policy          │
+                    │     (2303.04137)                │
+                    │     理解动作生成的 baseline       │
+                    └───────────────┬─────────────────┘
+                                    │
+          ┌─────────────────────────┴─────────────────────────┐
+          │                                                   │
+┌─────────▼─────────┐                           ┌─────────────▼─────────────┐
+│  3a. 3D Diffusion │                           │  3b. π0                    │
+│  Policy (DP3)     │                           │  (2410.24164)             │
+│  3D 点云输入       │                           │  VLM + Flow Matching      │
+└───────────────────┘                           └─────────────┬─────────────┘
+                                                              │
+                                                ┌─────────────▼─────────────┐
+                                                │  4. 自动驾驶 VLA 应用       │
+                                                │  - DriveVLM               │
+                                                │  - GenAD                  │
+                                                │  - 你自己的工作！          │
+                                                └───────────────────────────┘
+</code></pre>
+<hr>
+<h2>📄 已整理论文</h2>
+<table>
+<thead>
+<tr>
+<th>论文</th>
+<th>主题</th>
+<th>状态</th>
+<th>PDF</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="flow-matching.md">Flow Matching</a></td>
+<td>基础方法</td>
+<td>✅ 完成</td>
+<td><a href="../flow_matching_2210.02747.pdf">下载</a></td>
+</tr>
+<tr>
+<td><a href="pi0.md">π0</a></td>
+<td>VLM + Flow</td>
+<td>✅ 完成</td>
+<td><a href="../pi0_2410.24164.pdf">下载</a></td>
+</tr>
+<tr>
+<td><a href="diffusion-policy.md">Diffusion Policy</a></td>
+<td>动作生成</td>
+<td>✅ 完成</td>
+<td><a href="https://arxiv.org/pdf/2303.04137.pdf">arxiv</a></td>
+</tr>
+</tbody></table>
+<hr>
+<h2>🔜 待添加</h2>
+<ul>
+<li><input disabled="" type="checkbox"> 3D Diffusion Policy (DP3)</li>
+<li><input disabled="" type="checkbox"> Rectified Flow</li>
+<li><input disabled="" type="checkbox"> Conditional Flow Matching</li>
+<li><input disabled="" type="checkbox"> DriveVLM</li>
+<li><input disabled="" type="checkbox"> GenAD</li>
+</ul>
+<hr>
+<h2>🎬 视频资源</h2>
+<h3>Flow Matching</h3>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=5ZSwYogAxYg">Yaron Lipman ICML Tutorial</a> — 作者本人，强烈推荐</li>
+<li><a href="https://www.youtube.com/watch?v=DDq_pIfHqLs">Yannic Kilcher 讲解</a></li>
+</ul>
+<h3>π0</h3>
+<ul>
+<li><a href="https://physicalintelligence.company/blog/pi0">官方演示视频</a></li>
+</ul>
+<hr>
+<h2>💡 核心概念速查</h2>
+<h3>Diffusion vs Flow Matching</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Diffusion</th>
+<th>Flow Matching</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>训练目标</td>
+<td>预测噪声 ε</td>
+<td>预测速度场 v</td>
+</tr>
+<tr>
+<td>轨迹</td>
+<td>弯曲</td>
+<td>直线 (OT)</td>
+</tr>
+<tr>
+<td>数学</td>
+<td>SDE</td>
+<td>ODE</td>
+</tr>
+<tr>
+<td>采样步数</td>
+<td>20-50</td>
+<td>4-10</td>
+</tr>
+</tbody></table>
+<h3>为什么 Flow Matching 适合机器人/自动驾驶？</h3>
+<ol>
+<li><strong>实时性</strong> — 少步采样，延迟低</li>
+<li><strong>平滑性</strong> — 直线轨迹，动作不抖</li>
+<li><strong>稳定性</strong> — 训练更简单</li>
+</ol>
+<hr>
+<h2>📁 文件结构</h2>
+<pre><code>papers/
+├── README.md           # 本文件
+├── flow-matching.md    # Flow Matching 论文笔记
+├── pi0.md              # π0 论文笔记
+├── diffusion-policy.md # Diffusion Policy 论文笔记
+└── ...                 # 更多论文笔记
+</code></pre>
+<hr>
+<p><em>最后更新: 2026-02-27</em></p>
+
+    </div>
+</body>
+</html>

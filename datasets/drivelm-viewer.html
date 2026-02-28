@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚗 DriveLM 数据集浏览器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 30px;
+        }
+        
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.2em;
+            margin-bottom: 8px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-box {
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px 25px;
+            text-align: center;
+        }
+        
+        .stat-box .number {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+        
+        .stat-box .label { color: #888; font-size: 0.9em; }
+        
+        .scene-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            margin-bottom: 25px;
+            overflow: hidden;
+        }
+        
+        .scene-header {
+            background: rgba(0, 217, 255, 0.1);
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .scene-header h2 {
+            color: #00d9ff;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        
+        .scene-desc {
+            color: #aaa;
+            font-style: italic;
+        }
+        
+        .frame-tabs {
+            display: flex;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .frame-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: #888;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        
+        .frame-tab:hover { color: #fff; }
+        .frame-tab.active {
+            color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+            border-bottom: 2px solid #00ff88;
+        }
+        
+        .frame-content { padding: 20px; }
+        
+        .objects-section, .qa-section {
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            color: #00ff88;
+            font-size: 1em;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .object-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+        }
+        
+        .object-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            border-left: 3px solid #ff6b6b;
+        }
+        
+        .object-card.vehicle { border-left-color: #4ecdc4; }
+        .object-card.traffic { border-left-color: #ffe66d; }
+        
+        .object-tag {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85em;
+            color: #00d9ff;
+            margin-bottom: 6px;
+        }
+        
+        .object-info {
+            font-size: 0.9em;
+            color: #bbb;
+        }
+        
+        .qa-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .qa-tab {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: transparent;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+        
+        .qa-tab:hover { border-color: #00d9ff; color: #00d9ff; }
+        .qa-tab.active {
+            background: #00d9ff;
+            color: #0f0f23;
+            border-color: #00d9ff;
+        }
+        
+        .qa-list { max-height: 400px; overflow-y: auto; }
+        
+        .qa-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        
+        .qa-q {
+            color: #ff9f43;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .qa-q::before { content: 'Q: '; color: #888; }
+        
+        .qa-a {
+            color: #54a0ff;
+            padding-left: 20px;
+            border-left: 2px solid rgba(84, 160, 255, 0.3);
+        }
+        
+        .qa-a::before { content: 'A: '; color: #888; }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #00d9ff;
+            text-decoration: none;
+        }
+        
+        .back-link:hover { text-decoration: underline; }
+        
+        .json-toggle {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #888;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            margin-left: auto;
+        }
+        
+        .json-toggle:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+        
+        .json-raw {
+            display: none;
+            background: #0d0d1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            overflow-x: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8em;
+            color: #888;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .json-raw.show { display: block; }
+        
+        .cot-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .cot-step {
+            background: linear-gradient(145deg, #1e3a5f, #162d4a);
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 140px;
+        }
+        
+        .cot-step .title { color: #00d9ff; font-weight: bold; }
+        .cot-step .desc { color: #888; font-size: 0.8em; margin-top: 4px; }
+        
+        .cot-arrow {
+            color: #00ff88;
+            font-size: 1.5em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← 返回 Paper Hub</a>
+        
+        <h1>🚗 DriveLM 数据集浏览器</h1>
+        <p class="subtitle">Vision-Language Driving Dataset with Graph QA | nuScenes 子集</p>
+        
+        <div class="stats">
+            <div class="stat-box">
+                <div class="number">696</div>
+                <div class="label">场景数</div>
+            </div>
+            <div class="stat-box">
+                <div class="number">4,072</div>
+                <div class="label">关键帧</div>
+            </div>
+            <div class="stat-box">
+                <div class="number">17,238</div>
+                <div class="label">关键物体</div>
+            </div>
+            <div class="stat-box">
+                <div class="number">377,983</div>
+                <div class="label">QA 标注</div>
+            </div>
+        </div>
+        
+        <div class="cot-flow">
+            <div class="cot-step">
+                <div class="title">📷 Image</div>
+                <div class="desc">6 视角输入</div>
+            </div>
+            <div class="cot-arrow">→</div>
+            <div class="cot-step">
+                <div class="title">👁 Perception</div>
+                <div class="desc">物体识别</div>
+            </div>
+            <div class="cot-arrow">→</div>
+            <div class="cot-step">
+                <div class="title">🔮 Prediction</div>
+                <div class="desc">状态预测</div>
+            </div>
+            <div class="cot-arrow">→</div>
+            <div class="cot-step">
+                <div class="title">📍 Planning</div>
+                <div class="desc">决策规划</div>
+            </div>
+            <div class="cot-arrow">→</div>
+            <div class="cot-step">
+                <div class="title">🚙 Behavior</div>
+                <div class="desc">行为输出</div>
+            </div>
+        </div>
+        
+        <div id="scenes-container"></div>
+    </div>
+
+    <script>
+        // 数据将通过 fetch 加载
+        let data = [];
+        
+        async function loadData() {
+            try {
+                const resp = await fetch('drivelm_samples.json');
+                data = await resp.json();
+                renderScenes();
+            } catch (e) {
+                document.getElementById('scenes-container').innerHTML = 
+                    '<p style="color:#ff6b6b;text-align:center;">加载数据失败，请确保 drivelm_samples.json 存在</p>';
+            }
+        }
+        
+        function renderScenes() {
+            const container = document.getElementById('scenes-container');
+            container.innerHTML = data.map((scene, idx) => renderScene(scene, idx)).join('');
+            
+            // 绑定事件
+            document.querySelectorAll('.frame-tab').forEach(tab => {
+                tab.addEventListener('click', () => switchFrame(tab));
+            });
+            document.querySelectorAll('.qa-tab').forEach(tab => {
+                tab.addEventListener('click', () => switchQA(tab));
+            });
+            document.querySelectorAll('.json-toggle').forEach(btn => {
+                btn.addEventListener('click', () => toggleJSON(btn));
+            });
+        }
+        
+        function renderScene(scene, idx) {
+            const frames = Object.entries(scene.key_frames);
+            return `
+                <div class="scene-card" data-scene="${idx}">
+                    <div class="scene-header">
+                        <h2>Scene ${idx + 1}: ${scene.scene_token.slice(0, 16)}...</h2>
+                        <p class="scene-desc">${scene.scene_description || '无描述'}</p>
+                    </div>
+                    <div class="frame-tabs">
+                        ${frames.map((f, i) => `
+                            <button class="frame-tab ${i === 0 ? 'active' : ''}" 
+                                    data-frame="${i}">Frame ${i + 1}</button>
+                        `).join('')}
+                        <button class="json-toggle">📄 查看 JSON</button>
+                    </div>
+                    ${frames.map((f, i) => renderFrame(f[0], f[1], i === 0)).join('')}
+                    <pre class="json-raw">${JSON.stringify(scene, null, 2)}</pre>
+                </div>
+            `;
+        }
+        
+        function renderFrame(token, frame, active) {
+            const objects = Object.entries(frame.key_object_infos || {});
+            const qa = frame.QA || {};
+            const tasks = ['perception', 'prediction', 'planning', 'behavior'];
+            
+            return `
+                <div class="frame-content" style="display:${active ? 'block' : 'none'}">
+                    <div class="objects-section">
+                        <div class="section-title">🎯 关键物体 (${objects.length})</div>
+                        <div class="object-grid">
+                            ${objects.slice(0, 6).map(([tag, info]) => `
+                                <div class="object-card ${info.Category === 'Vehicle' ? 'vehicle' : info.Category === 'Traffic element' ? 'traffic' : ''}">
+                                    <div class="object-tag">${tag}</div>
+                                    <div class="object-info">
+                                        <strong>${info.Category}</strong> · ${info.Status || 'N/A'}<br>
+                                        ${info.Visual_description || ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="qa-section">
+                        <div class="section-title">💬 QA 标注</div>
+                        <div class="qa-tabs">
+                            ${tasks.map((t, i) => `
+                                <button class="qa-tab ${i === 0 ? 'active' : ''}" 
+                                        data-task="${t}">
+                                    ${t.charAt(0).toUpperCase() + t.slice(1)} 
+                                    (${(qa[t] || []).length})
+                                </button>
+                            `).join('')}
+                        </div>
+                        ${tasks.map((t, i) => `
+                            <div class="qa-list" data-task="${t}" style="display:${i === 0 ? 'block' : 'none'}">
+                                ${(qa[t] || []).slice(0, 5).map(q => `
+                                    <div class="qa-item">
+                                        <div class="qa-q">${q.Q}</div>
+                                        <div class="qa-a">${q.A}</div>
+                                    </div>
+                                `).join('')}
+                                ${(qa[t] || []).length > 5 ? 
+                                    `<p style="color:#888;text-align:center;">... 还有 ${(qa[t] || []).length - 5} 条</p>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function switchFrame(tab) {
+            const card = tab.closest('.scene-card');
+            card.querySelectorAll('.frame-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            const frameIdx = parseInt(tab.dataset.frame);
+            card.querySelectorAll('.frame-content').forEach((c, i) => {
+                c.style.display = i === frameIdx ? 'block' : 'none';
+            });
+        }
+        
+        function switchQA(tab) {
+            const section = tab.closest('.qa-section');
+            section.querySelectorAll('.qa-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            const task = tab.dataset.task;
+            section.querySelectorAll('.qa-list').forEach(l => {
+                l.style.display = l.dataset.task === task ? 'block' : 'none';
+            });
+        }
+        
+        function toggleJSON(btn) {
+            const card = btn.closest('.scene-card');
+            const raw = card.querySelector('.json-raw');
+            raw.classList.toggle('show');
+            btn.textContent = raw.classList.contains('show') ? '📄 隐藏 JSON' : '📄 查看 JSON';
+        }
+        
+        loadData();
+    </script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>π0: A Vision-Language-Action Flow Model for General Robot Control</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.8;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.05);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        h1 { 
+            color: #00d9ff; 
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(0,217,255,0.3);
+        }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        h4 { color: #fff; margin: 20px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+        }
+        pre {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        tr:hover { background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote {
+            border-left: 3px solid #00d9ff;
+            padding-left: 20px;
+            margin: 15px 0;
+            color: #aaa;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background: rgba(0,217,255,0.2);
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>π0: A Vision-Language-Action Flow Model for General Robot Control</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2410.24164">2410.24164</a> | <strong>作者:</strong> Kevin Black, Sergey Levine 等 (Physical Intelligence) | <strong>年份:</strong> 2024</p>
+<h2>一句话总结</h2>
+<p>基于预训练 VLM + Flow Matching 的机器人基础模型，实现跨平台、多任务的通用机器人控制。</p>
+<hr>
+<h2>核心贡献</h2>
+<ol>
+<li><strong>VLM + Flow Matching 架构</strong> — 继承互联网语义知识 + 高效动作生成</li>
+<li><strong>跨平台训练</strong> — 单臂、双臂、移动机械臂统一建模</li>
+<li><strong>Zero-shot + Fine-tune</strong> — 预训练后可直接执行任务，也可快速适应新技能</li>
+</ol>
+<hr>
+<h2>架构设计</h2>
+<pre><code>┌─────────────────────────────────────────────┐
+│                   π0                         │
+├─────────────────────────────────────────────┤
+│  ┌─────────────┐    ┌─────────────────────┐ │
+│  │   Image     │───▶│                     │ │
+│  │  Encoder    │    │   Pre-trained VLM   │ │
+│  └─────────────┘    │   (PaliGemma)       │ │
+│                     │                     │ │
+│  ┌─────────────┐    │   Semantic          │ │
+│  │  Language   │───▶│   Understanding     │ │
+│  │  Tokens     │    │                     │ │
+│  └─────────────┘    └──────────┬──────────┘ │
+│                                │            │
+│                     ┌──────────▼──────────┐ │
+│                     │   Flow Matching     │ │
+│  ┌─────────────┐    │   Action Head       │ │
+│  │  Proprio    │───▶│                     │ │
+│  │  State      │    │   v_t(x) → action   │ │
+│  └─────────────┘    └──────────┬──────────┘ │
+│                                │            │
+│                     ┌──────────▼──────────┐ │
+│                     │   Action Chunk      │ │
+│                     │   (50 steps)        │ │
+│                     └─────────────────────┘ │
+└─────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<h2>为什么用 Flow Matching？</h2>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>Diffusion 的局限</th>
+<th>Flow Matching 的优势</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>实时性</td>
+<td>20-50 步采样太慢</td>
+<td>4-10 步即可</td>
+</tr>
+<tr>
+<td>动作平滑</td>
+<td>弯曲轨迹可能抖动</td>
+<td>直线路径更平滑</td>
+</tr>
+<tr>
+<td>训练稳定</td>
+<td>噪声调度敏感</td>
+<td>直接回归速度场</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>训练数据</h2>
+<ul>
+<li><strong>Open X-Embodiment</strong> — 开源机器人数据集</li>
+<li><strong>自采集数据</strong> — 叠衣服、清理桌面、组装箱子等</li>
+<li><strong>多平台</strong> — 单臂、双臂、移动底盘</li>
+</ul>
+<hr>
+<h2>关键能力</h2>
+<h3>1. Zero-shot 执行</h3>
+<p>预训练后直接理解语言指令执行任务</p>
+<h3>2. 高层 VLM 调度</h3>
+<p>可以接收 GPT-4V 等高层规划器的指令</p>
+<h3>3. 快速 Fine-tune</h3>
+<p>少量数据微调适应新任务/新机器人</p>
+<hr>
+<h2>实验结果</h2>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>成功率</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>叠衣服</td>
+<td>85%+</td>
+</tr>
+<tr>
+<td>桌面清理</td>
+<td>高</td>
+</tr>
+<tr>
+<td>箱子组装</td>
+<td>高</td>
+</tr>
+</tbody></table>
+<p>特点：很少违反安全约束（对比其他方法经常需要人工干预）</p>
+<hr>
+<h2>与自动驾驶的关联</h2>
+<p>π0 的设计思路可以迁移到自动驾驶 VLA：</p>
+<ol>
+<li><strong>VLM backbone</strong> — 继承场景理解能力</li>
+<li><strong>Flow Matching 动作头</strong> — 快速生成轨迹</li>
+<li><strong>Action Chunking</strong> — 预测未来多步，平滑控制</li>
+<li><strong>多模态输入</strong> — 图像 + 语言 + 车辆状态</li>
+</ol>
+<hr>
+<h2>代码 &amp; 视频</h2>
+<ul>
+<li><strong>项目主页：</strong> <a href="https://physicalintelligence.company/blog/pi0">https://physicalintelligence.company/blog/pi0</a></li>
+<li><strong>视频演示：</strong> 见项目主页</li>
+</ul>
+<hr>
+<h2>下载</h2>
+<p>📄 <a href="../pi0_2410.24164.pdf">pi0_2410.24164.pdf</a></p>
+
+    </div>
+</body>
+</html>

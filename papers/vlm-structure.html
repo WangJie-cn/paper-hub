@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧩 VLM 模型结构详解</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 30px;
+            line-height: 1.7;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #00d9ff;
+            text-decoration: none;
+        }
+        .back-link:hover { text-decoration: underline; }
+        
+        h1 {
+            font-size: 2em;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        h2 {
+            color: #00d9ff;
+            margin: 35px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.3);
+        }
+        
+        h3 { color: #00ff88; margin: 25px 0 15px; }
+        
+        .diagram-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .diagram-box img {
+            max-width: 100%;
+            border-radius: 8px;
+            cursor: zoom-in;
+            transition: transform 0.3s;
+        }
+        
+        .diagram-box img:hover {
+            transform: scale(1.02);
+        }
+        
+        /* 点击放大的模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            cursor: zoom-out;
+            overflow: auto;
+            padding: 20px;
+        }
+        
+        .modal.show { display: flex; justify-content: center; align-items: center; }
+        
+        .modal img {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+        }
+        
+        .diagram-box .caption {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        th { color: #00d9ff; background: rgba(0, 0, 0, 0.2); }
+        tr:hover { background: rgba(0, 0, 0, 0.2); }
+        
+        .code-block {
+            background: #0d0d1a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        
+        .highlight { color: #ff9f43; }
+        .green { color: #00ff88; }
+        .blue { color: #00d9ff; }
+        
+        .key-point {
+            background: rgba(0, 217, 255, 0.1);
+            border-left: 4px solid #00d9ff;
+            padding: 15px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 20px 0;
+        }
+        
+        .section {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        
+        ul { padding-left: 20px; }
+        li { margin: 8px 0; }
+        
+        .summary-table {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回 Paper Hub</a>
+        
+        <h1>🧩 VLM 模型结构详解</h1>
+        <p style="color: #888; margin-bottom: 30px;">Backbone、Head、Multi-Head 的作用与原理</p>
+        
+        <h2>1. VLM 整体架构</h2>
+        
+        <div class="diagram-box">
+            <img src="vlm-architecture-hd.png" alt="VLM 架构图" style="min-width: 100%; image-rendering: -webkit-optimize-contrast;">
+            <div class="caption">VLM 由 Vision Encoder + LLM Backbone + 多个 Head 组成 <span style="color:#00d9ff">(点击放大)</span></div>
+        </div>
+        
+        <table>
+            <tr>
+                <th>组件</th>
+                <th>作用</th>
+                <th>参数量</th>
+                <th>输出</th>
+            </tr>
+            <tr>
+                <td><span class="blue">Vision Encoder</span></td>
+                <td>图像 → 特征向量</td>
+                <td>~1-2B</td>
+                <td>(B, num_patches, d)</td>
+            </tr>
+            <tr>
+                <td><span class="blue">LLM Backbone</span></td>
+                <td>融合视觉+文本，提取高级语义</td>
+                <td>~3-7B</td>
+                <td>(B, seq_len, d)</td>
+            </tr>
+            <tr>
+                <td><span class="green">Head</span></td>
+                <td>特定任务的"翻译器"</td>
+                <td>~几 MB</td>
+                <td>任务相关输出</td>
+            </tr>
+        </table>
+        
+        <h2>2. 为什么 Head 可以单独训练？</h2>
+        
+        <div class="key-point">
+            <strong>核心原理：</strong>Backbone 是"特征提取器"，Head 是"任务适配器"
+        </div>
+        
+        <div class="diagram-box">
+            <img src="head-feature-reading.png" alt="Head 从特征读取信息">
+            <div class="caption">每个 Head 从同一个 h 中读取不同方面的信息</div>
+        </div>
+        
+        <div class="section">
+            <h3>类比理解</h3>
+            <ul>
+                <li><span class="blue">Backbone</span> = 大脑的理解能力（看懂了场景）</li>
+                <li><span class="green">Head</span> = 不同的输出接口（嘴巴说话、手写字、脚走路）</li>
+            </ul>
+            <p style="margin-top: 15px;">训练 Head = 学习如何把"理解"翻译成特定格式的输出，<span class="highlight">不需要重新训练"理解能力"本身</span></p>
+        </div>
+        
+        <h2>3. Head 学到的特征是随机的吗？</h2>
+        
+        <p><strong class="green">不是随机的！</strong> Head 学到的是从 h 到目标的<span class="highlight">确定性映射</span>。</p>
+        
+        <div class="code-block">
+<span style="color:#888">// Head 本质是线性层</span>
+<span class="blue">class</span> TrajectoryHead:
+    self.linear = Linear(hidden_dim, num_waypoints * 2)
+    
+    <span class="blue">def</span> forward(h):
+        <span style="color:#888">// h @ W^T + b</span>
+        <span style="color:#888">// W 学习的是：h 的哪些维度对应轨迹的 x, y</span>
+        <span class="blue">return</span> self.linear(h)
+
+<span style="color:#888">// 训练后 W 的含义：</span>
+W[0, :] = 读取 h 中与 <span class="highlight">"第1个点的 x 坐标"</span> 相关的特征组合
+W[1, :] = 读取 h 中与 <span class="highlight">"第1个点的 y 坐标"</span> 相关的特征组合
+...
+        </div>
+        
+        <h2>4. 轨迹 Head 可以做 Multi-Head 吗？</h2>
+        
+        <p><strong class="green">完全可以！而且很常见</strong></p>
+        
+        <div class="diagram-box">
+            <img src="multimodal-traj-head.png" alt="多模态轨迹 Head">
+            <div class="caption">多模态轨迹：输出多条候选轨迹 + 每条的概率</div>
+        </div>
+        
+        <h3>方案 A: 多模态轨迹 (最常用)</h3>
+        <div class="code-block">
+<span class="blue">class</span> MultiModalTrajectoryHead:
+    <span style="color:#888">// 输出 6 条候选轨迹 + 每条的概率</span>
+    self.traj_head = Linear(hidden_dim, <span class="highlight">6 * 12 * 2</span>)  <span style="color:#888">// 6条×12点×xy</span>
+    self.prob_head = Linear(hidden_dim, <span class="highlight">6</span>)
+    
+    <span class="blue">def</span> forward(h):
+        trajs = self.traj_head(h).reshape(-1, 6, 12, 2)
+        probs = softmax(self.prob_head(h))
+        <span class="blue">return</span> trajs, probs
+        </div>
+        
+        <h3>方案 B: Query-based (DETR 风格)</h3>
+        <div class="code-block">
+<span class="blue">class</span> QueryBasedTrajectoryHead:
+    <span style="color:#888">// 可学习的 query，每个负责预测一个 waypoint</span>
+    self.queries = Parameter(randn(<span class="highlight">12</span>, hidden_dim))
+    
+    <span class="blue">def</span> forward(h):
+        decoded = transformer_decoder(self.queries, h)  <span style="color:#888">// (12, d)</span>
+        waypoints = self.output(decoded)                 <span style="color:#888">// (12, 2)</span>
+        <span class="blue">return</span> waypoints
+        </div>
+        
+        <h2>5. 完整代码示例</h2>
+        
+        <div class="code-block">
+<span class="blue">class</span> DrivingVLM(nn.Module):
+    <span class="blue">def</span> __init__(self):
+        <span style="color:#888"># Backbone (冻结或微调)</span>
+        self.vision_encoder = SigLIP()
+        self.llm = Qwen2_7B()
+        
+        <span style="color:#888"># 多个 Head (可独立训练)</span>
+        hidden_dim = 4096
+        self.weather_head = Linear(hidden_dim, 5)     <span style="color:#888"># 5类天气</span>
+        self.scene_head = Linear(hidden_dim, 10)      <span style="color:#888"># 10类场景</span>
+        self.action_head = Linear(hidden_dim, 17)     <span style="color:#888"># 17类动作</span>
+        self.traj_head = <span class="highlight">MultiModalTrajectoryHead</span>(hidden_dim)
+    
+    <span class="blue">def</span> forward(self, images):
+        vis_tokens = self.vision_encoder(images)
+        h = self.llm(vis_tokens)
+        cls = h[:, 0, :]  <span style="color:#888"># 用第一个 token</span>
+        
+        <span class="blue">return</span> {
+            <span class="green">'weather'</span>: self.weather_head(cls),
+            <span class="green">'scene'</span>: self.scene_head(cls),
+            <span class="green">'action'</span>: self.action_head(cls),
+            <span class="green">'trajectories'</span>: self.traj_head(cls),
+        }
+        </div>
+        
+        <h2>6. 总结</h2>
+        
+        <div class="summary-table">
+            <table>
+                <tr>
+                    <th>问题</th>
+                    <th>答案</th>
+                </tr>
+                <tr>
+                    <td>Backbone 是什么？</td>
+                    <td>特征提取器，理解图像+文本，输出高维语义向量 h</td>
+                </tr>
+                <tr>
+                    <td>Head 是什么？</td>
+                    <td>任务适配器，从 h 中提取特定任务需要的信息</td>
+                </tr>
+                <tr>
+                    <td>为什么能单独训练？</td>
+                    <td>h 已包含丰富语义，Head 只需学习"读取方式"</td>
+                </tr>
+                <tr>
+                    <td>特征是随机的吗？</td>
+                    <td>不是，每个 Head 学到的是 h → 目标的确定性映射</td>
+                </tr>
+                <tr>
+                    <td>轨迹能 Multi-Head？</td>
+                    <td>能！多模态轨迹 / Query-based / Multi-Head Attention</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); color: #666; text-align: center;">
+            Last updated: 2026-02-28
+        </div>
+    </div>
+    
+    <!-- 点击放大模态框 -->
+    <div class="modal" id="imageModal">
+        <img id="modalImg" src="" alt="">
+    </div>
+    
+    <script>
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImg');
+        
+        // 点击图片放大
+        document.querySelectorAll('.diagram-box img').forEach(img => {
+            img.addEventListener('click', () => {
+                modalImg.src = img.src;
+                modal.classList.add('show');
+            });
+        });
+        
+        // 点击模态框关闭
+        modal.addEventListener('click', () => {
+            modal.classList.remove('show');
+        });
+        
+        // ESC 关闭
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') modal.classList.remove('show');
+        });
+    </script>
+</body>
+</html>

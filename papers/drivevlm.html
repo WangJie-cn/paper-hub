@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DriveVLM: The Convergence of Autonomous Driving and Large Vision-Language Models</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.8;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.05);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        h1 { 
+            color: #00d9ff; 
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(0,217,255,0.3);
+        }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        h4 { color: #fff; margin: 20px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+        }
+        pre {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        tr:hover { background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote {
+            border-left: 3px solid #00d9ff;
+            padding-left: 20px;
+            margin: 15px 0;
+            color: #aaa;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background: rgba(0,217,255,0.2);
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>DriveVLM: The Convergence of Autonomous Driving and Large Vision-Language Models</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2402.12289">2402.12289</a> | <strong>作者:</strong> Xiaoyu Tian 等 (清华大学 + 理想汽车) | <strong>年份:</strong> 2024</p>
+<h2>一句话总结</h2>
+<p>将 VLM 引入自动驾驶系统，通过 Chain-of-Thought 推理实现场景理解和规划，并提出 DriveVLM-Dual 双系统架构解决 VLM 的延迟和空间推理问题。</p>
+<hr>
+<h2>核心贡献</h2>
+<ol>
+<li><strong>DriveVLM</strong> — 基于 VLM 的自动驾驶系统，通过 CoT 推理实现场景描述、场景分析、层级规划</li>
+<li><strong>DriveVLM-Dual</strong> — 混合架构，结合 VLM 的场景理解能力和传统管线的实时性</li>
+<li><strong>SUP-AD 数据集</strong> — 场景理解与规划数据集，包含长尾场景和挑战性场景</li>
+</ol>
+<hr>
+<h2>架构设计</h2>
+<h3>DriveVLM 核心流程（Chain-of-Thought）</h3>
+<pre><code>图像序列输入
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Large Vision Language Model               │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐ │
+│  │ Scene        │──▶│ Scene        │──▶│ Hierarchical     │ │
+│  │ Description  │   │ Analysis     │   │ Planning         │ │
+│  │              │   │              │   │                  │ │
+│  │ • 天气       │   │ • 关键物体   │   │ • Meta-actions   │ │
+│  │ • 时间       │   │   特征分析   │   │ • 决策描述       │ │
+│  │ • 道路类型   │   │ • 对自车     │   │ • 轨迹点         │ │
+│  │ • 车道状态   │   │   的影响     │   │                  │ │
+│  │ • 关键物体   │   │ • 场景总结   │   │                  │ │
+│  └──────────────┘   └──────────────┘   └──────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3>DriveVLM-Dual 双系统架构</h3>
+<pre><code>                    ┌─────────────────────────────────┐
+                    │         DriveVLM                │
+                    │    (低频，场景理解)              │
+图像序列 ──────────▶│                                 │──▶ Wslow
+                    │  Scene Description              │    (粗轨迹)
+                    │  Scene Analysis                 │       │
+                    │  Hierarchical Planning          │       │
+                    └─────────────────────────────────┘       │
+                                                              │
+                                                              ▼
+                    ┌─────────────────────────────────┐    轨迹融合
+                    │      Traditional Pipeline       │       │
+传感器数据 ────────▶│    (高频，精确规划)              │       │
+                    │                                 │       │
+                    │  3D Perception                  │       ▼
+                    │  Motion Prediction              │──▶ Wfast
+                    │  Trajectory Planning            │   (精细轨迹)
+                    └─────────────────────────────────┘
+</code></pre>
+<p><strong>核心思想：类比人脑的&quot;快思考&quot;与&quot;慢思考&quot;</strong></p>
+<ul>
+<li><strong>慢系统 (VLM)</strong>：深度场景理解，处理复杂/长尾场景</li>
+<li><strong>快系统 (传统管线)</strong>：高频实时规划，精确空间推理</li>
+</ul>
+<hr>
+<h2>关键创新点</h2>
+<h3>1. Scene Description（场景描述）</h3>
+<p>识别驾驶环境和关键物体：</p>
+<ul>
+<li><strong>环境描述</strong>：天气、时间、道路类型、车道状态</li>
+<li><strong>关键物体识别</strong>：只关注影响驾驶的关键物体（不是检测所有物体）</li>
+<li><strong>长尾物体识别</strong>：利用 VLM 预训练能力识别罕见物体（道路碎片、动物等）</li>
+</ul>
+<h3>2. Scene Analysis（场景分析）</h3>
+<p>对关键物体进行深入分析：</p>
+<ul>
+<li><strong>静态属性 Cs</strong>：物体固有特性（如卡车超宽货物）</li>
+<li><strong>运动状态 Cm</strong>：位置、方向、动作</li>
+<li><strong>特殊行为 Cb</strong>：手势、信号等直接影响自车的行为</li>
+<li><strong>影响预测 I</strong>：物体对自车的潜在影响</li>
+</ul>
+<h3>3. Hierarchical Planning（层级规划）</h3>
+<p>渐进式生成驾驶计划：</p>
+<ul>
+<li><strong>Meta-actions</strong>：短期决策序列（17种类别：加速、减速、转向等）</li>
+<li><strong>Decision Description</strong>：细粒度驾驶策略（动作+对象+持续时间）</li>
+<li><strong>Trajectory Waypoints</strong>：轨迹点序列</li>
+</ul>
+<h3>4. 3D 感知融合</h3>
+<p>将 3D 检测结果与 VLM 识别的关键物体匹配：</p>
+<ul>
+<li><strong>Matched</strong>：使用 3D 坐标、轨迹历史辅助分析</li>
+<li><strong>Unmatched</strong>：仅用图像 token 分析（处理长尾物体）</li>
+</ul>
+<hr>
+<h2>实验结果</h2>
+<h3>SUP-AD 数据集</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Scene Description</th>
+<th>Meta-actions</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Lynx (fine-tuned)</td>
+<td>0.46</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>CogVLM (fine-tuned)</td>
+<td>0.49</td>
+<td>0.22</td>
+</tr>
+<tr>
+<td>GPT-4V (in-context)</td>
+<td>0.38</td>
+<td>0.19</td>
+</tr>
+<tr>
+<td><strong>DriveVLM (Qwen)</strong></td>
+<td><strong>0.71</strong></td>
+<td><strong>0.37</strong></td>
+</tr>
+</tbody></table>
+<h3>nuScenes 规划</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>L2 Avg (m) ↓</th>
+<th>Collision Avg (%) ↓</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>UniAD</td>
+<td>1.03</td>
+<td>0.31</td>
+</tr>
+<tr>
+<td>VAD-Base</td>
+<td>0.37</td>
+<td>0.14</td>
+</tr>
+<tr>
+<td><strong>DriveVLM-Dual</strong></td>
+<td><strong>0.31</strong></td>
+<td><strong>0.10</strong></td>
+</tr>
+</tbody></table>
+<hr>
+<h2>数据集：SUP-AD</h2>
+<h3>数据采集流程</h3>
+<pre><code>驾驶场景视频库 → 长尾物体挖掘 → 人工筛选 → 关键帧选择 → 场景标注 → 验证
+              → 挑战性场景挖掘 ↗
+</code></pre>
+<h3>挖掘策略</h3>
+<ol>
+<li><strong>长尾物体挖掘</strong>：CLIP 搜索引擎，按类别查询</li>
+<li><strong>挑战性场景挖掘</strong>：根据驾驶行为方差挖掘</li>
+<li><strong>关键帧选择</strong>：重大行为变化前 0.5-1s</li>
+</ol>
+<hr>
+<h2>技术细节</h2>
+<h3>基础模型</h3>
+<ul>
+<li><strong>VLM</strong>：Qwen-VL（9.6B 参数）</li>
+<li><strong>输入</strong>：T, T-1s, T-2s, T-3s 四帧图像</li>
+<li><strong>分辨率</strong>：448 × 448</li>
+</ul>
+<h3>Co-tuning 策略</h3>
+<p>为保持 LLM 泛化能力，联合训练多个数据集：</p>
+<ul>
+<li>Talk2Car, BDD-X, Drama, SUTD, LLaVA</li>
+</ul>
+<h3>评估指标</h3>
+<ul>
+<li><strong>Scene Description</strong>：LLM 打分（与 GT 一致性）</li>
+<li><strong>Meta-action</strong>：动态规划算法比较序列相似度</li>
+</ul>
+<hr>
+<h2>与你的 VLA 工作的关联</h2>
+<ol>
+<li><p><strong>双系统架构</strong></p>
+<ul>
+<li>可借鉴 VLM + 传统管线的融合方式</li>
+<li>慢/快系统分工：场景理解 vs 实时控制</li>
+</ul>
+</li>
+<li><p><strong>CoT 推理范式</strong></p>
+<ul>
+<li>场景描述 → 场景分析 → 规划</li>
+<li>可作为 VLA 训练的中间监督信号</li>
+</ul>
+</li>
+<li><p><strong>长尾场景处理</strong></p>
+<ul>
+<li>利用 VLM 预训练知识处理罕见物体</li>
+<li>数据挖掘流程可借鉴</li>
+</ul>
+</li>
+<li><p><strong>3D 感知融合</strong></p>
+<ul>
+<li>Matched/Unmatched 物体分别处理的思路</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>局限性</h2>
+<ol>
+<li><strong>延迟问题</strong>：VLM 推理慢，需要双系统架构弥补</li>
+<li><strong>空间推理</strong>：VLM 空间理解能力有限，依赖 3D 感知辅助</li>
+<li><strong>数据标注成本</strong>：SUP 任务需要大量人工标注</li>
+</ol>
+<hr>
+<h2>代码 &amp; 项目</h2>
+<ul>
+<li><strong>项目主页：</strong> <a href="https://tsinghua-mars-lab.github.io/DriveVLM/">https://tsinghua-mars-lab.github.io/DriveVLM/</a></li>
+<li><strong>机构：</strong> 清华大学 + 理想汽车</li>
+</ul>
+<hr>
+<h2>下载</h2>
+<p>📄 <a href="../drivevlm_2402.12289.pdf">drivevlm_2402.12289.pdf</a></p>
+
+    </div>
+</body>
+</html>

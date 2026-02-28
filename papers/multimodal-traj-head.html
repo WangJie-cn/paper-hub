@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#1a1b26; padding:32px; display:flex; flex-direction:column; align-items:center; width:900px; }
+  .diagram { display:flex; justify-content:center; }
+  .diagram svg { max-width:100%; height:auto; }
+</style></head>
+<body><h2 style="color:#a9b1d6;font-family:-apple-system,'Noto Sans SC',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;text-align:center;">多模态轨迹 Head 设计</h2><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1135.5 504" width="1135.5" height="504" style="--bg:#1a1b26;--fg:#a9b1d6;--line:#3d59a1;--accent:#7aa2f7;--muted:#565f89;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 30%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="4.8" refX="8" refY="2.4" orient="auto">
+    <polygon points="0 0, 8 2.4, 0 4.8" fill="var(--_arrow)" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="4.8" refX="0" refY="2.4" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.4, 8 4.8" fill="var(--_arrow)" />
+  </marker>
+</defs>
+<rect x="357.7500000000001" y="40" width="644.8" height="112" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="357.7500000000001" y="40" width="644.8" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="369.7500000000001" y="54" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;输入&quot;</text>
+<rect x="56.875" y="196" width="1013.5999999999999" height="112" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="56.875" y="196" width="1013.5999999999999" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="68.875" y="210" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;多模态轨迹 Head&quot;</text>
+<rect x="40" y="352" width="1055.5" height="112" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="40" y="352" width="1055.5" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="52" y="366" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;输出&quot;</text>
+<polyline points="638.05,132 638.05,152 425.35,152 425.35,252" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="638.05,132 638.05,152 907.35,152 907.35,252" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="425.35,288 425.35,308 113.75000000000003,308 113.75000000000003,408" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="425.35,288 425.35,308 241.25000000000003,308 241.25000000000003,408" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="425.35,288 425.35,308 368.75,308 368.75,408" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="425.35,288 425.35,308 481.95000000000005,308 481.95000000000005,408" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="425.35,288 425.35,308 580.85,308 580.85,408" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="425.35,288 425.35,308 679.75,308 679.75,408" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="907.35,288 907.35,408" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<rect x="564.8499999999999" y="96" width="146.4" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="269.925" y="252" width="310.85" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="766.225" y="252" width="282.25" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="62.00000000000003" y="408" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="#00ff88" stroke-width="3px" />
+<rect x="189.50000000000003" y="408" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="#00d9ff" stroke-width="2px" />
+<rect x="317" y="408" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="#ff9f43" stroke-width="1px" />
+<rect x="444.50000000000006" y="408" width="74.9" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="543.4" y="408" width="74.9" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="642.3" y="408" width="74.9" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="741.2" y="408" width="332.3" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<text x="638.05" y="114" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Hidden State h&quot;</text>
+<text x="425.35" y="270" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Trajectory Head&lt;br/&gt;Linear(d, 6×12×2)&quot;</text>
+<text x="907.35" y="270" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Probability Head&lt;br/&gt;Linear(d, 6)&quot;</text>
+<text x="113.75000000000003" y="426" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;轨迹 1 ━━━&quot;</text>
+<text x="241.25000000000003" y="426" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;轨迹 2 ╌╌╌&quot;</text>
+<text x="368.75" y="426" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;轨迹 3 ┅┅┅&quot;</text>
+<text x="481.95000000000005" y="426" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;轨迹 4&quot;</text>
+<text x="580.85" y="426" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;轨迹 5&quot;</text>
+<text x="679.75" y="426" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;轨迹 6&quot;</text>
+<text x="907.35" y="426" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;概率分布&lt;br/&gt;[0.4, 0.3, 0.2, 0.05, 0.03, 0.02</text>
+</svg></div></body></html>

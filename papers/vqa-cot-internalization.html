@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 VQA 训练与 CoT 能力内化机制</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 30px;
+            line-height: 1.7;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #00d9ff;
+            text-decoration: none;
+        }
+        .back-link:hover { text-decoration: underline; }
+        
+        h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .status {
+            display: inline-block;
+            background: rgba(255, 159, 67, 0.2);
+            color: #ff9f43;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin-bottom: 20px;
+        }
+        
+        .core-question {
+            background: rgba(255, 107, 107, 0.1);
+            border-left: 4px solid #ff6b6b;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }
+        
+        .core-question h3 { color: #ff6b6b; margin-bottom: 10px; }
+        
+        h2 {
+            color: #00d9ff;
+            margin: 30px 0 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.3);
+        }
+        
+        h3 { color: #00ff88; margin: 20px 0 10px; }
+        
+        .code-block {
+            background: #0d0d1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9em;
+        }
+        
+        .diagram {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            font-family: 'Fira Code', monospace;
+        }
+        
+        .diagram .arrow { color: #00ff88; }
+        .diagram .box {
+            display: inline-block;
+            background: linear-gradient(145deg, #1e3a5f, #162d4a);
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin: 5px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        th { color: #00d9ff; }
+        tr:hover { background: rgba(0, 0, 0, 0.2); }
+        
+        .todo-list {
+            background: rgba(0, 217, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin: 15px 0;
+        }
+        
+        .todo-list li {
+            list-style: none;
+            padding: 5px 0;
+            color: #aaa;
+        }
+        
+        .todo-list li::before {
+            content: '☐ ';
+            color: #ff9f43;
+        }
+        
+        .math {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Times New Roman', serif;
+            font-size: 1.1em;
+            text-align: center;
+            margin: 15px 0;
+        }
+        
+        .highlight { color: #ff9f43; }
+        .green { color: #00ff88; }
+        
+        .section {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .method-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .method-card h4 {
+            color: #00d9ff;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回 Paper Hub</a>
+        
+        <h1>🧠 VQA 训练与 CoT 能力内化机制</h1>
+        <span class="status">🔬 待深入研究</span>
+        
+        <div class="core-question">
+            <h3>❓ 核心问题</h3>
+            <p>为什么用 QA 训练的模型，推理时可以不需要 Question？能力是如何"内化"的？</p>
+        </div>
+        
+        <h2>1. 现象描述</h2>
+        
+        <div class="diagram">
+            <div><strong>训练时:</strong></div>
+            <div class="box">Image</div>
+            <span class="arrow">+</span>
+            <div class="box">"What objects?"</div>
+            <span class="arrow">→</span>
+            <div class="box">Answer</div>
+        </div>
+        
+        <div class="diagram">
+            <div><strong>推理时:</strong></div>
+            <div class="box">Image</div>
+            <span class="arrow">→</span>
+            <div class="box">Trajectory</div>
+            <div style="color: #888; margin-top: 10px;">(不需要 Question!)</div>
+        </div>
+        
+        <h2>2. 直观类比</h2>
+        
+        <table>
+            <tr>
+                <th>阶段</th>
+                <th>学开车</th>
+                <th>VLM 训练</th>
+            </tr>
+            <tr>
+                <td>学习时</td>
+                <td>教练问"前面有什么？该怎么办？"</td>
+                <td>QA prompt 引导推理</td>
+            </tr>
+            <tr>
+                <td>熟练后</td>
+                <td>直接反应，不需要自问自答</td>
+                <td>直接 image → action</td>
+            </tr>
+        </table>
+        
+        <p>QA 不是目的，而是<span class="highlight">训练工具</span>——强迫模型学会正确的注意力分配和推理路径。</p>
+        
+        <h2>3. 数学原理 (待研究)</h2>
+        
+        <div class="section">
+            <h3>3.1 条件概率视角</h3>
+            <div class="math">
+                P(answer | image, question)
+            </div>
+            <p>当 question 是固定模板时：</p>
+            <div class="math">
+                P(action | image, q<sub>fixed</sub>) ≈ P(action | image)
+            </div>
+            <p>Question 退化为"格式提示"，实际学的是 image → answer 的直接映射。</p>
+        </div>
+        
+        <div class="section">
+            <h3>3.2 信息论视角</h3>
+            <div class="math">
+                I(Answer; Question | Image) = 0 ?
+            </div>
+            <p>如果给定 Image，Question 不提供额外信息，那么模型学的是 I(Answer; Image)。</p>
+        </div>
+        
+        <div class="section">
+            <h3>3.3 特征空间"雕刻"</h3>
+            <div class="diagram">
+                <div><strong>训练前:</strong> 通用视觉-语言特征空间</div>
+                <div style="margin: 15px 0;">↓ QA 微调 ↓</div>
+                <div><strong>训练后:</strong> 任务特化特征空间</div>
+                <div style="margin-top: 15px; text-align: left; padding-left: 30%;">
+                    行人特征 → 激活"减速"方向<br>
+                    红灯特征 → 激活"停车"方向
+                </div>
+            </div>
+        </div>
+        
+        <h2>4. 实现方案</h2>
+        
+        <div class="method-card">
+            <h4>方案 A: 多任务联合训练</h4>
+            <div class="code-block">
+loss = λ1·L_perception + λ2·L_prediction + λ3·L_planning + λ4·L_trajectory
+            </div>
+            <p>共享 encoder + LLM，多个输出头。推理时只用 trajectory head。</p>
+        </div>
+        
+        <div class="method-card">
+            <h4>方案 B: 两阶段训练</h4>
+            <p>阶段1: 完整 CoT 训练 → 阶段2: 冻结参数，只微调最后几层输出轨迹</p>
+        </div>
+        
+        <div class="method-card">
+            <h4>方案 C: 知识蒸馏</h4>
+            <p>Teacher (大模型 + CoT) → Student (小模型，直接输出)</p>
+            <div class="code-block">
+loss = MSE(student_traj, teacher_traj) + MSE(student_hidden, teacher_hidden)
+            </div>
+        </div>
+        
+        <h2>5. 车端 HMI 同时输出 CoT</h2>
+        
+        <p>如果需要在车端显示推理解释：</p>
+        
+        <div class="method-card">
+            <h4>推荐: 结构化 CoT 输出</h4>
+            <div class="code-block">
+return {
+    'scene': cls(h),      # 分类: 城市/高速
+    'action': cls(h),     # 分类: 17类 meta-action
+    'risk': reg(h),       # 回归: 风险分数
+    'trajectory': reg(h)  # 回归: 轨迹点
+}
+            </div>
+            <p class="green">✓ 一次 forward (~50ms)，无需自回归</p>
+        </div>
+        
+        <h2>6. 待研究问题</h2>
+        
+        <ul class="todo-list">
+            <li>CoT 压缩后，中间推理信息是否保留？如何度量？</li>
+            <li>去掉 question 后，OOD 泛化能力是否下降？</li>
+            <li>如何从内化模型中提取/恢复中间推理过程？</li>
+            <li>对比实验: 有 QA vs 无 QA 训练的轨迹精度差异</li>
+            <li>Attention map 在训练前后的变化可视化</li>
+        </ul>
+        
+        <h2>7. 相关论文</h2>
+        
+        <ul style="list-style: none; padding: 0;">
+            <li style="padding: 8px 0;">📄 Chain-of-Thought Prompting (Wei et al., 2022)</li>
+            <li style="padding: 8px 0;">📄 Let's Think Step by Step (Kojima et al., 2022)</li>
+            <li style="padding: 8px 0;">📄 Distilling Step-by-Step (Hsieh et al., 2023)</li>
+        </ul>
+        
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); color: #666; text-align: center;">
+            Last updated: 2026-02-28
+        </div>
+    </div>
+</body>
+</html>
