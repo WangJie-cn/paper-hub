@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>权重共享 (Weight Tying)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { 
+    background: linear-gradient(135deg, #1a1b26 0%, #24283b 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #a9b1d6;
+    padding: 40px;
+    min-height: 100vh;
+}
+h1 { color: #7aa2f7; text-align: center; margin-bottom: 40px; font-size: 28px; }
+h2 { color: #bb9af7; margin: 30px 0 20px; font-size: 22px; }
+.container { max-width: 1000px; margin: 0 auto; }
+.diagram { 
+    background: #1a1b26; 
+    border-radius: 12px; 
+    padding: 24px; 
+    margin: 20px 0;
+    border: 1px solid #414868;
+    display: flex;
+    justify-content: center;
+}
+.section { margin-bottom: 40px; }
+.box {
+    background: #1a1b26;
+    border: 1px solid #414868;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    font-family: 'Monaco', 'Menlo', monospace;
+    line-height: 1.8;
+    overflow-x: auto;
+}
+.highlight { color: #f7768e; font-weight: bold; }
+.key { color: #9ece6a; }
+.comment { color: #565f89; }
+table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin: 20px 0;
+    background: #1a1b26;
+    border-radius: 8px;
+    overflow: hidden;
+}
+th, td { 
+    padding: 12px 16px; 
+    text-align: left; 
+    border-bottom: 1px solid #414868;
+}
+th { background: #24283b; color: #7aa2f7; }
+pre {
+    background: #1a1b26;
+    border: 1px solid #414868;
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    font-size: 14px;
+}
+code { color: #9ece6a; }
+ul { margin: 16px 0; padding-left: 24px; }
+li { margin: 8px 0; line-height: 1.6; }
+.emoji { font-size: 1.2em; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>🔗 权重共享 (Weight Tying)</h1>
+    
+    <div class="section">
+        <h2>1️⃣ 什么是权重共享？</h2>
+        <p>在 LLM 中，<span class="key">wte</span>（输入 embedding）和 <span class="key">lm_head</span>（输出层）使用<span class="highlight">同一个权重矩阵</span>。</p>
+        <div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 749.6 1412" width="749.6" height="1412" style="--bg:#1a1b26;--fg:#a9b1d6;--line:#3d59a1;--accent:#7aa2f7;--muted:#565f89;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 30%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="4.8" refX="8" refY="2.4" orient="auto">
+    <polygon points="0 0, 8 2.4, 0 4.8" fill="var(--_arrow)" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="4.8" refX="0" refY="2.4" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.4, 8 4.8" fill="var(--_arrow)" />
+  </marker>
+</defs>
+<rect x="40" y="40" width="344.79999999999995" height="1332" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="40" y="40" width="344.79999999999995" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="52" y="54" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;LLM 前向过程&quot;</text>
+<rect x="113.625" y="296" width="197.54999999999995" height="348" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="113.625" y="296" width="197.54999999999995" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="125.625" y="310" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;wte (Embedding)&quot;</text>
+<rect x="60" y="768" width="304.79999999999995" height="112" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="60" y="768" width="304.79999999999995" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="72" y="782" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;Transformer Backbone&quot;</text>
+<rect x="95.75" y="1004" width="233.29999999999995" height="348" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="95.75" y="1004" width="233.29999999999995" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="107.75" y="1018" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;lm_head&quot;</text>
+<rect x="404.80000000000007" y="40" width="304.79999999999995" height="152" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="404.80000000000007" y="40" width="304.79999999999995" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="416.80000000000007" y="54" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;权重共享&quot;</text>
+<polyline points="212.39999999999998,388 212.39999999999998,588" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="212.39999999999998,1096 212.39999999999998,1296" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="212.39999999999998,152 212.39999999999998,352" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="212.39999999999998,624 212.39999999999998,824" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="212.39999999999998,860 212.39999999999998,1060" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<rect x="128.47499999999997" y="116" width="167.85000000000002" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="160.64999999999998" y="352" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="135.62499999999997" y="588" width="153.55" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="81.99999999999997" y="824" width="260.8" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="146.34999999999997" y="1060" width="132.10000000000002" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="117.74999999999997" y="1296" width="189.3" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="426.80000000000007" y="116" width="260.8" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<text x="212.39999999999998" y="134" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;token_id: 3 (&#39;界&#39;)&quot;</text>
+<text x="212.39999999999998" y="370" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;查表: id=3&quot;</text>
+<text x="212.39999999999998" y="606" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;→ [1.0, 1.1, 1.2</text>
+<text x="212.39999999999998" y="842" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;hidden_state&lt;br/&gt;[0.5, 0.8, 0.3</text>
+<text x="212.39999999999998" y="1078" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;hidden × W^T&quot;</text>
+<text x="212.39999999999998" y="1314" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;→ logits [p0,p1,p2,p3</text>
+<text x="557.2" y="134" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;同一个矩阵 W&lt;br/&gt;[vocab_size, n_embd</text>
+</svg></div>
+    </div>
+    
+    <div class="section">
+        <h2>2️⃣ 两层做的事情</h2>
+        <table>
+            <tr><th>层</th><th>输入</th><th>输出</th><th>操作</th></tr>
+            <tr>
+                <td><span class="key">wte</span></td>
+                <td>token_id (整数)</td>
+                <td>embedding 向量</td>
+                <td>查表：取矩阵的第 i 行</td>
+            </tr>
+            <tr>
+                <td><span class="key">lm_head</span></td>
+                <td>hidden_state 向量</td>
+                <td>logits (vocab_size 维)</td>
+                <td>矩阵乘法：hidden × W<sup>T</sup></td>
+            </tr>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>3️⃣ 具体例子</h2>
+        <div class="box">
+<span class="comment">词表: [你, 好, 世, 界]  vocab_size=4, n_embd=3</span>
+
+<span class="key">wte 权重矩阵 W</span> (4×3):
+     dim0  dim1  dim2
+你 [ 0.1,  0.2,  0.3 ]
+好 [ 0.4,  0.5,  0.6 ]
+世 [ 0.7,  0.8,  0.9 ]
+界 [ 1.0,  1.1,  1.2 ]
+
+<span class="highlight">输入阶段 (wte):</span>
+输入 "界" (id=3) → 查表取第3行 → <span class="key">[1.0, 1.1, 1.2]</span>
+
+<span class="highlight">输出阶段 (lm_head):</span>
+hidden_state = [0.5, 0.8, 0.3]  <span class="comment">← Backbone 输出</span>
+logits = hidden × W<sup>T</sup>
+       = [0.5, 0.8, 0.3] × [[0.1, 0.4, 0.7, 1.0],
+                            [0.2, 0.5, 0.8, 1.1],
+                            [0.3, 0.6, 0.9, 1.2]]
+       = [<span class="key">点积结果就是和每个词embedding的相似度</span>]
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>4️⃣ 为什么有效？</h2>
+        <div class="box">
+<span class="key">wte 做的事:</span>     token_id  →  语义空间的点
+<span class="key">lm_head 做的事:</span> 语义空间的点 →  和每个词的相似度 (点积)
+
+<span class="highlight">共享权重意味着：</span>
+• 输入 "猫" 得到向量 v_猫
+• 输出时，hidden_state 和 v_猫 越接近，预测 "猫" 的概率越高
+
+<span class="emoji">💡</span> 如果模型"想说猫"，它的 hidden_state 就应该接近 "猫" 的 embedding
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>5️⃣ 节省多少参数？</h2>
+        <pre><code><span class="comment"># 不共享：两套参数</span>
+wte = nn.Embedding(50000, 768)    <span class="comment"># 50000×768 = 38.4M</span>
+lm_head = nn.Linear(768, 50000)   <span class="comment"># 768×50000 = 38.4M</span>
+<span class="comment"># 总共 76.8M 参数</span>
+
+<span class="comment"># 共享：一套参数</span>
+wte.weight = lm_head.weight       <span class="comment"># 只有 38.4M 参数</span>
+<span class="comment"># 节省 50%！</span></code></pre>
+    </div>
+    
+    <div class="section">
+        <h2>6️⃣ 代码实现</h2>
+        <pre><code><span class="comment"># nanoGPT 中的实现</span>
+class GPT(nn.Module):
+    def __init__(self, config):
+        self.transformer = nn.ModuleDict(dict(
+            wte = nn.Embedding(vocab_size, n_embd),
+            ...
+        ))
+        self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
+        
+        <span class="highlight"># 关键：权重共享</span>
+        self.transformer.wte.weight = self.lm_head.weight</code></pre>
+    </div>
+    
+    <p style="text-align:center; margin-top:40px; color:#565f89;">
+        这是 GPT-2 论文中的技巧，现已成为 LLM 标配
+    </p>
+</div>
+</body></html>
