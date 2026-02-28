@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backbone/Head vs Multi-Head Attention 详解</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; padding: 40px 20px; line-height: 1.8; }
+        .container { max-width: 1000px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; font-size: 13px; }
+        pre code { background: none; padding: 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; font-style: italic; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+        .diagram { background: rgba(0,0,0,0.3); padding: 25px; border-radius: 12px; margin: 20px 0; overflow-x: auto; }
+        .highlight { color: #00ff88; font-weight: bold; }
+        .warning { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🧩 Backbone/Head vs Multi-Head Attention 详解</h1>
+<p><strong>类型:</strong> 架构笔记 | <strong>主题:</strong> 深度学习架构中的"Head"概念辨析</p>
+
+<h2>⚠️ 先说结论</h2>
+<blockquote>
+<strong>Backbone + Head</strong> 和 <strong>Multi-Head Attention</strong> 是<span class="warning">完全不同的概念</span>！<br>
+它们只是恰好都用了 "Head" 这个词，但含义截然不同。
+</blockquote>
+<hr>
+
+<h2>📊 概念对比</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Backbone + Head</th>
+<th>Multi-Head Attention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>层级</strong></td>
+<td>模型架构层面</td>
+<td>单个模块内部</td>
+</tr>
+<tr>
+<td><strong>作用</strong></td>
+<td>功能分工</td>
+<td>并行计算多种注意力</td>
+</tr>
+<tr>
+<td><strong>"Head"含义</strong></td>
+<td>任务输出头</td>
+<td>注意力的并行分支</td>
+</tr>
+<tr>
+<td><strong>数量</strong></td>
+<td>通常 1-5 个</td>
+<td>通常 8/12/16 个</td>
+</tr>
+<tr>
+<td><strong>参数</strong></td>
+<td>各自独立训练</td>
+<td>共享输入，分割维度</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>🏗️ Part 1: Backbone + Head 架构</h2>
+
+<h3>什么是 Backbone？</h3>
+<p>Backbone（骨干网络）是模型的<span class="highlight">特征提取器</span>，负责将原始输入转换为高级特征表示。</p>
+
+<div class="diagram">
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│                    完整模型架构                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   输入 (图像/文本/点云)                                          │
+│            │                                                    │
+│            ▼                                                    │
+│   ┌─────────────────────────────────────────────────────┐      │
+│   │                  BACKBONE                           │      │
+│   │  ┌─────────────────────────────────────────────┐   │      │
+│   │  │  通用特征提取                                │   │      │
+│   │  │  • ResNet / ViT / BERT                      │   │      │
+│   │  │  • 预训练权重                                │   │      │
+│   │  │  • 可以冻结或微调                           │   │      │
+│   │  └─────────────────────────────────────────────┘   │      │
+│   │                                                     │      │
+│   │  输出: 通用特征 F ∈ R^(B × C × H × W)              │      │
+│   └──────────────────────┬──────────────────────────────┘      │
+│                          │                                      │
+│          ┌───────────────┼───────────────┐                      │
+│          │               │               │                      │
+│          ▼               ▼               ▼                      │
+│   ┌───────────┐   ┌───────────┐   ┌───────────┐                │
+│   │Classification    │Detection│   │Segmentation               │
+│   │   HEAD    │   │   HEAD    │   │   HEAD    │                │
+│   │           │   │           │   │           │                │
+│   │ • FC层    │   │ • FPN     │   │ • 上采样   │                │
+│   │ • Softmax │   │ • Anchor  │   │ • 像素分类 │                │
+│   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘                │
+│         │               │               │                       │
+│         ▼               ▼               ▼                       │
+│    类别概率        Bounding Boxes    像素级 Mask                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>常见的 Head 类型</h3>
+<table>
+<thead>
+<tr>
+<th>Head 类型</th>
+<th>任务</th>
+<th>输出</th>
+<th>典型结构</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Classification Head</td>
+<td>图像分类</td>
+<td>类别概率</td>
+<td>Global Pool + FC + Softmax</td>
+</tr>
+<tr>
+<td>Detection Head</td>
+<td>目标检测</td>
+<td>bbox + 类别</td>
+<td>FPN + RPN / DETR decoder</td>
+</tr>
+<tr>
+<td>Segmentation Head</td>
+<td>语义分割</td>
+<td>像素 mask</td>
+<td>上采样 + 1x1 Conv</td>
+</tr>
+<tr>
+<td>LM Head</td>
+<td>语言建模</td>
+<td>下一个 token</td>
+<td>Linear(hidden, vocab_size)</td>
+</tr>
+<tr>
+<td>Regression Head</td>
+<td>回归任务</td>
+<td>连续值</td>
+<td>FC layers</td>
+</tr>
+</tbody>
+</table>
+
+<h3>代码示例</h3>
+<pre><code>import torch.nn as nn
+from torchvision.models import resnet50
+
+class MultiTaskModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+        # Backbone: 提取通用特征
+        backbone = resnet50(pretrained=True)
+        self.backbone = nn.Sequential(*list(backbone.children())[:-2])  # 去掉最后的池化和FC
+        
+        # Head 1: 分类
+        self.cls_head = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(2048, 1000)
+        )
+        
+        # Head 2: 检测 (简化版)
+        self.det_head = nn.Conv2d(2048, 4 + 80, 1)  # 4个bbox坐标 + 80类
+        
+    def forward(self, x):
+        # 共享 backbone
+        features = self.backbone(x)  # (B, 2048, H/32, W/32)
+        
+        # 各自的 head
+        cls_out = self.cls_head(features)
+        det_out = self.det_head(features)
+        
+        return cls_out, det_out
+</code></pre>
+<hr>
+
+<h2>🎯 Part 2: Multi-Head Attention</h2>
+
+<h3>什么是 Multi-Head Attention？</h3>
+<p>Multi-Head Attention 是 Transformer 内部的一个<span class="highlight">注意力计算模块</span>，通过并行运行多个注意力"头"来捕获不同类型的依赖关系。</p>
+
+<div class="diagram">
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│               Multi-Head Attention 内部结构                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   输入: X ∈ R^(seq_len × d_model)                               │
+│         例如 d_model = 768                                       │
+│                                                                 │
+│            │                                                    │
+│            ▼                                                    │
+│   ┌─────────────────────────────────────────────────────┐      │
+│   │  线性投影: 生成 Q, K, V                              │      │
+│   │  Q = X @ W_Q    (768 → 768)                         │      │
+│   │  K = X @ W_K    (768 → 768)                         │      │
+│   │  V = X @ W_V    (768 → 768)                         │      │
+│   └──────────────────────┬──────────────────────────────┘      │
+│                          │                                      │
+│          ┌───────────────┼───────────────┐                      │
+│          │      分割成 h 个头 (h=12)      │                      │
+│          │   每个头: 768/12 = 64 维       │                      │
+│          │                               │                      │
+│   ┌──────┴──────┐ ┌──────┴──────┐ ┌──────┴──────┐              │
+│   │   Head 1    │ │   Head 2    │ │   Head 12   │              │
+│   │             │ │             │ │             │              │
+│   │  Q₁ K₁ V₁   │ │  Q₂ K₂ V₂   │ │ Q₁₂ K₁₂ V₁₂│  ...         │
+│   │  (64 dim)   │ │  (64 dim)   │ │  (64 dim)   │              │
+│   │             │ │             │ │             │              │
+│   │ Attention₁  │ │ Attention₂  │ │ Attention₁₂ │              │
+│   │  = softmax  │ │  = softmax  │ │  = softmax  │              │
+│   │  (Q₁K₁ᵀ/√d) │ │  (Q₂K₂ᵀ/√d) │ │  (Q₁₂K₁₂ᵀ/√d)             │
+│   │    × V₁     │ │    × V₂     │ │    × V₁₂   │              │
+│   │             │ │             │ │             │              │
+│   │  输出: 64   │ │  输出: 64   │ │  输出: 64   │              │
+│   └──────┬──────┘ └──────┬──────┘ └──────┬──────┘              │
+│          │               │               │                      │
+│          └───────────────┼───────────────┘                      │
+│                          │ Concat                               │
+│                          ▼                                      │
+│                 ┌─────────────────┐                             │
+│                 │  Concat + Linear │                            │
+│                 │  (768 → 768)     │                            │
+│                 └────────┬────────┘                             │
+│                          │                                      │
+│                          ▼                                      │
+│   输出: Y ∈ R^(seq_len × d_model)                               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>为什么要 Multi-Head？</h3>
+<ul>
+<li><strong>不同的注意力模式</strong> — 有的 head 关注局部，有的关注全局</li>
+<li><strong>不同的特征子空间</strong> — 64 维 × 12 个 head = 768 维</li>
+<li><strong>提高表达能力</strong> — 单个 head 只能学一种注意力模式</li>
+</ul>
+
+<h3>代码示例</h3>
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model=768, n_heads=12):
+        super().__init__()
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.d_k = d_model // n_heads  # 每个 head 的维度
+        
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, d_model)
+        self.W_v = nn.Linear(d_model, d_model)
+        self.W_o = nn.Linear(d_model, d_model)
+        
+    def forward(self, x):
+        B, L, D = x.shape
+        
+        # 线性投影
+        Q = self.W_q(x)  # (B, L, 768)
+        K = self.W_k(x)
+        V = self.W_v(x)
+        
+        # 分割成多个 head
+        # (B, L, 768) → (B, L, 12, 64) → (B, 12, L, 64)
+        Q = Q.view(B, L, self.n_heads, self.d_k).transpose(1, 2)
+        K = K.view(B, L, self.n_heads, self.d_k).transpose(1, 2)
+        V = V.view(B, L, self.n_heads, self.d_k).transpose(1, 2)
+        
+        # 每个 head 独立计算 attention
+        # (B, 12, L, 64) @ (B, 12, 64, L) → (B, 12, L, L)
+        attn_scores = Q @ K.transpose(-2, -1) / (self.d_k ** 0.5)
+        attn_weights = F.softmax(attn_scores, dim=-1)
+        
+        # (B, 12, L, L) @ (B, 12, L, 64) → (B, 12, L, 64)
+        out = attn_weights @ V
+        
+        # 合并所有 head
+        # (B, 12, L, 64) → (B, L, 12, 64) → (B, L, 768)
+        out = out.transpose(1, 2).contiguous().view(B, L, D)
+        
+        return self.W_o(out)
+</code></pre>
+<hr>
+
+<h2>🔄 它们之间的关系</h2>
+
+<div class="diagram">
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│                      完整 VLM 架构                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│                         输入图像                                 │
+│                            │                                    │
+│                            ▼                                    │
+│  ╔═════════════════════════════════════════════════════════╗   │
+│  ║                    BACKBONE (ViT)                       ║   │
+│  ║  ┌───────────────────────────────────────────────────┐  ║   │
+│  ║  │  Layer 1                                          │  ║   │
+│  ║  │  ┌─────────────────────────────────────────────┐  │  ║   │
+│  ║  │  │  Multi-Head Self-Attention (12 heads)       │  │  ║   │
+│  ║  │  │  ← 这里的 "Head" 是注意力头                  │  │  ║   │
+│  ║  │  └─────────────────────────────────────────────┘  │  ║   │
+│  ║  │  ┌─────────────────────────────────────────────┐  │  ║   │
+│  ║  │  │  Feed-Forward Network                       │  │  ║   │
+│  ║  │  └─────────────────────────────────────────────┘  │  ║   │
+│  ║  └───────────────────────────────────────────────────┘  ║   │
+│  ║  ┌───────────────────────────────────────────────────┐  ║   │
+│  ║  │  Layer 2 ... Layer 12  (重复上述结构)             │  ║   │
+│  ║  └───────────────────────────────────────────────────┘  ║   │
+│  ╚══════════════════════════╤══════════════════════════════╝   │
+│                             │                                   │
+│                   通用视觉特征 (197 × 768)                       │
+│                             │                                   │
+│          ┌──────────────────┼──────────────────┐                │
+│          │                  │                  │                │
+│          ▼                  ▼                  ▼                │
+│  ╔═══════════════╗  ╔═══════════════╗  ╔═══════════════╗       │
+│  ║ Classification ║  ║  Detection   ║  ║  VLM/Chat    ║       │
+│  ║     HEAD      ║  ║    HEAD      ║  ║    HEAD      ║       │
+│  ║               ║  ║              ║  ║              ║       │
+│  ║  Linear(768,  ║  ║  DETR-style  ║  ║  Projection  ║       │
+│  ║   num_classes)║  ║  Decoder     ║  ║  + LLM       ║       │
+│  ║  ← 任务输出头  ║  ║  ← 任务输出头 ║  ║  ← 任务输出头 ║       │
+│  ╚═══════════════╝  ╚═══════════════╝  ╚═══════════════╝       │
+│          │                  │                  │                │
+│          ▼                  ▼                  ▼                │
+│      类别标签            Bounding Boxes     对话回复            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+🔑 关键区别:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Multi-Head Attention 的 "Head": 
+  → 在 Transformer 层内部
+  → 并行计算不同的注意力模式
+  → 数量: 8/12/16 个
+  → 维度分割: d_model / n_heads
+
+• Task Head (任务头): 
+  → 在 Backbone 之后
+  → 针对特定任务的输出层
+  → 数量: 1-5 个
+  → 独立的网络模块
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+</pre>
+</div>
+<hr>
+
+<h2>🎭 总结表格</h2>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>Backbone + Task Head</th>
+<th>Multi-Head Attention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>出现位置</strong></td>
+<td>模型最外层结构</td>
+<td>Transformer 层内部</td>
+</tr>
+<tr>
+<td><strong>设计目的</strong></td>
+<td>功能解耦、多任务学习</td>
+<td>捕获多种注意力模式</td>
+</tr>
+<tr>
+<td><strong>Head 数量</strong></td>
+<td>等于任务数（1-5）</td>
+<td>固定超参数（8/12/16）</td>
+</tr>
+<tr>
+<td><strong>维度</strong></td>
+<td>各 Head 独立维度</td>
+<td>d_model / n_heads</td>
+</tr>
+<tr>
+<td><strong>参数共享</strong></td>
+<td>共享 Backbone</td>
+<td>共享 W_q, W_k, W_v</td>
+</tr>
+<tr>
+<td><strong>输出合并</strong></td>
+<td>不合并，各自输出</td>
+<td>Concat + Linear</td>
+</tr>
+<tr>
+<td><strong>例子</strong></td>
+<td>ResNet + FC, ViT + Det Head</td>
+<td>BERT 的 12 个 attention head</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>💡 直观类比</h2>
+<blockquote>
+<strong>Backbone + Head</strong> 像一个公司：<br>
+- Backbone = 研发部门（提供基础技术）<br>
+- Classification Head = 产品部（做消费品）<br>
+- Detection Head = 安防部（做监控系统）<br>
+- 共享研发，各自输出产品
+
+<strong>Multi-Head Attention</strong> 像一个团队开会：<br>
+- 每个 Head = 一个角度的讨论<br>
+- Head 1 关注"谁说了什么"<br>
+- Head 2 关注"说的顺序"<br>
+- Head 3 关注"说话的语气"<br>
+- 最后把所有角度的信息综合起来
+</blockquote>
+<hr>
+
+<p>📝 <strong>Last updated:</strong> 2026-03-01</p>
+
+    </div>
+</body>
+</html>
