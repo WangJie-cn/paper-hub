@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>Backbone/Head vs Multi-Head Attention</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { 
+    background: linear-gradient(135deg, #1a1b26 0%, #24283b 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #a9b1d6;
+    padding: 40px;
+    min-height: 100vh;
+}
+h1 { color: #7aa2f7; text-align: center; margin-bottom: 40px; font-size: 28px; }
+h2 { color: #bb9af7; margin: 30px 0 20px; font-size: 22px; }
+.container { max-width: 1000px; margin: 0 auto; }
+.diagram { 
+    background: #1a1b26; 
+    border-radius: 12px; 
+    padding: 24px; 
+    margin: 20px 0;
+    border: 1px solid #414868;
+    display: flex;
+    justify-content: center;
+}
+.section { margin-bottom: 40px; }
+table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin: 20px 0;
+    background: #1a1b26;
+    border-radius: 8px;
+    overflow: hidden;
+}
+th, td { 
+    padding: 12px 16px; 
+    text-align: left; 
+    border-bottom: 1px solid #414868;
+}
+th { background: #24283b; color: #7aa2f7; }
+.highlight { color: #f7768e; font-weight: bold; }
+.key { color: #9ece6a; }
+ul { margin: 16px 0; padding-left: 24px; }
+li { margin: 8px 0; line-height: 1.6; }
+.comparison { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 24px; 
+    margin-top: 30px;
+}
+.card {
+    background: #1a1b26;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #414868;
+}
+.card h3 { color: #7aa2f7; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>🧠 Backbone/Task Head vs Multi-Head Attention</h1>
+    
+    <div class="section">
+        <h2>1️⃣ 模型架构级别：Backbone + Task Heads</h2>
+        <div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 857.1 940" width="857.1" height="940" style="--bg:#1a1b26;--fg:#a9b1d6;--line:#3d59a1;--accent:#7aa2f7;--muted:#565f89;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 30%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="4.8" refX="8" refY="2.4" orient="auto">
+    <polygon points="0 0, 8 2.4, 0 4.8" fill="var(--_arrow)" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="4.8" refX="0" refY="2.4" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.4, 8 4.8" fill="var(--_arrow)" />
+  </marker>
+</defs>
+<rect x="40" y="40" width="757.1000000000001" height="860" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="40" y="40" width="757.1000000000001" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="52" y="54" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;🔷 VLM 模型架构&quot;</text>
+<rect x="140.22500000000002" y="296" width="533.075" height="348" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="140.22500000000002" y="296" width="533.075" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="152.22500000000002" y="310" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;🦴 Backbone&lt;br/&gt;特征提取&quot;</text>
+<rect x="60" y="768" width="717.1000000000001" height="112" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="60" y="768" width="717.1000000000001" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="72" y="782" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;🎯 Task Heads 任务头&quot;</text>
+<polyline points="414.975,388 414.975,588" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="414.975,152 414.975,352" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="414.975,624 414.975,644 180.22500000000002,644 180.22500000000002,824" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="414.975,624 414.975,824" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="414.975,624 414.975,644 653.3000000000001,644 653.3000000000001,824" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<rect x="331.05" y="116" width="167.85000000000002" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="82.00000000000001" y="824" width="196.45000000000002" height="36" rx="0" ry="0" fill="#4a7b2d" stroke="#8aff4a" stroke-width="0.75" />
+<rect x="302.45000000000005" y="824" width="225.05" height="36" rx="0" ry="0" fill="#4a7b2d" stroke="#8aff4a" stroke-width="0.75" />
+<rect x="551.5" y="824" width="203.60000000000002" height="36" rx="0" ry="0" fill="#4a7b2d" stroke="#8aff4a" stroke-width="0.75" />
+<rect x="323.90000000000003" y="352" width="182.15" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="363.225" y="588" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<text x="414.975" y="134" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;📥 输入&lt;br/&gt;图像 + 文本&quot;</text>
+<text x="180.22500000000002" y="842" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="#fff">&quot;🚗 Detection&lt;br/&gt;目标检测&quot;</text>
+<text x="414.975" y="842" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="#fff">&quot;🛣️ Segmentation&lt;br/&gt;语义分割&quot;</text>
+<text x="653.3" y="842" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="#fff">&quot;📍 Trajectory&lt;br/&gt;轨迹预测&quot;</text>
+<text x="414.975" y="370" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;ViT / ResNet / Swin&quot;</text>
+<text x="414.975" y="606" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;提取通用视觉特征&quot;</text>
+</svg></div>
+        <ul>
+            <li><span class="key">Backbone</span>：特征提取器，处理原始输入，输出通用特征表示</li>
+            <li><span class="key">Task Head</span>：任务特定的输出层，每个 Head 负责一个下游任务</li>
+            <li>多个 Task Heads <span class="highlight">共享</span> 同一个 Backbone 的特征</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>2️⃣ Transformer 内部：Multi-Head Attention</h2>
+        <div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1838.2 492" width="1838.2" height="492" style="--bg:#1a1b26;--fg:#a9b1d6;--line:#3d59a1;--accent:#7aa2f7;--muted:#565f89;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 30%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="4.8" refX="8" refY="2.4" orient="auto">
+    <polygon points="0 0, 8 2.4, 0 4.8" fill="var(--_arrow)" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="4.8" refX="0" refY="2.4" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.4, 8 4.8" fill="var(--_arrow)" />
+  </marker>
+</defs>
+<rect x="40" y="40" width="1758.2" height="412" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="40" y="40" width="1758.2" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="52" y="54" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;🔶 Multi-Head Attention&quot;</text>
+<rect x="334.9" y="76" width="143.5" height="356" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="334.9" y="76" width="143.5" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="346.9" y="90" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;线性投影&quot;</text>
+<rect x="638.3999999999999" y="76" width="300.80000000000007" height="356" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="638.3999999999999" y="76" width="300.80000000000007" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="650.3999999999999" y="90" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;并行注意力头&quot;</text>
+<polyline points="154.9,252 174.9,252 174.9,202 354.9,202" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="154.9,252 174.9,252 174.9,262 354.9,262" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="154.9,252 174.9,252 174.9,322 354.9,322" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="458.4,202 478.4,202 478.4,152 788.8,152 788.8,144" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="458.4,262 478.4,262 478.4,172 788.8,172 788.8,180" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="458.4,322 478.4,322 478.4,192 788.8,192 788.8,180" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="458.4,202 478.4,202 478.4,212 788.8,212 788.8,234" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="458.4,262 478.4,262 478.4,252 658.4,252" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="458.4,322 478.4,322 478.4,312 788.8,312 788.8,270" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="458.4,202 478.4,202 478.4,332 788.8,332 788.8,364" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="458.4,262 478.4,262 478.4,362 788.8,362 788.8,364" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="458.4,322 478.4,322 478.4,402 788.8,402 788.8,400" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="919.1999999999999,162 1163.8,162 1163.8,284" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="919.1999999999999,252 1163.8,252 1163.8,284" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="822.675,322 1163.8,322 1163.8,320" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="919.1999999999999,382 1163.8,382 1163.8,320" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1208.3999999999999,302 1408.4,302" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1497.6,302 1697.6000000000001,302" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<rect x="80" y="234" width="74.9" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1119.2" y="284" width="89.2" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1408.4" y="284" width="89.2" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1697.6000000000001" y="284" width="60.6" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="354.9" y="184" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="354.9" y="244" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="354.9" y="304" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="658.4" y="144" width="260.8" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="658.4" y="234" width="260.8" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="658.4" y="364" width="260.8" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="754.925" y="304" width="67.75" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<text x="117.45" y="252" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;输入 X&quot;</text>
+<text x="1163.8" y="302" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Concat&quot;</text>
+<text x="1453" y="302" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Linear&quot;</text>
+<text x="1727.9" y="302" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;输出&quot;</text>
+<text x="406.65" y="202" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Q = X·Wq&quot;</text>
+<text x="406.65" y="262" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;K = X·Wk&quot;</text>
+<text x="406.65" y="322" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;V = X·Wv&quot;</text>
+<text x="788.8" y="162" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Head 1&lt;br/&gt;Attention(Q₁,K₁,V₁)&quot;</text>
+<text x="788.8" y="252" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Head 2&lt;br/&gt;Attention(Q₂,K₂,V₂)&quot;</text>
+<text x="788.8" y="382" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Head N&lt;br/&gt;Attention(Qₙ,Kₙ,Vₙ)&quot;</text>
+<text x="788.8" y="322" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;...&quot;</text>
+</svg></div>
+        <ul>
+            <li><span class="key">Multi-Head</span>：将 Q/K/V 分成多组，并行计算注意力</li>
+            <li>每个 Head 学习 <span class="highlight">不同的注意力模式</span>（有的关注局部，有的关注全局）</li>
+            <li>最后 <span class="key">Concat + Linear</span> 融合所有 Head 的输出</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>3️⃣ 核心区别</h2>
+        <table>
+            <tr><th>概念</th><th>层级</th><th>目的</th><th>数量</th></tr>
+            <tr><td>Backbone</td><td>模型架构</td><td>特征提取</td><td>通常 1 个</td></tr>
+            <tr><td>Task Head</td><td>模型架构</td><td>任务输出</td><td>按任务数量</td></tr>
+            <tr><td>Attention Head</td><td>Transformer 层内</td><td>多角度注意力</td><td>8/16/32...</td></tr>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>4️⃣ 它们的联系</h2>
+        <div class="comparison">
+            <div class="card">
+                <h3>ViT Backbone</h3>
+                <p>内部使用 Multi-Head Attention 来建模图像 patch 之间的关系</p>
+            </div>
+            <div class="card">
+                <h3>DETR Detection Head</h3>
+                <p>内部也有 Transformer，使用 Multi-Head Attention 做目标查询</p>
+            </div>
+        </div>
+        <p style="margin-top: 20px; text-align: center;">
+            👉 <span class="highlight">Multi-Head Attention 是更底层的组件</span>，可以出现在 Backbone 或 Task Head 中
+        </p>
+    </div>
+</div>
+</body></html>
