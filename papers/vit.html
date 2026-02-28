@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ViT: An Image is Worth 16x16 Words</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.8;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.05);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        pre code { background: none; padding: 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🖼️ ViT: An Image is Worth 16x16 Words</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2010.11929">2010.11929</a> | <strong>作者:</strong> Alexey Dosovitskiy 等 (Google) | <strong>年份:</strong> 2020</p>
+
+<h2>一句话总结</h2>
+<p>把图像切成 <strong>16×16 的 patch</strong>，当作 NLP 的 token 序列输入标准 Transformer，<strong>抛弃 CNN</strong> 也能在图像分类上取得 SOTA。</p>
+<hr>
+
+<h2>核心贡献</h2>
+<ol>
+<li><strong>纯 Transformer 架构</strong> — 完全不用卷积</li>
+<li><strong>Patch Embedding</strong> — 图像 → 序列的桥梁</li>
+<li><strong>规模定律验证</strong> — 数据越多，ViT 越强</li>
+<li><strong>开创视觉 Transformer 时代</strong></li>
+</ol>
+<hr>
+
+<h2>模型架构</h2>
+<pre><code>输入图像 (224×224×3)
+        │
+        ▼
+┌───────────────────┐
+│   Patch Embedding │  将图像切成 14×14 = 196 个 patch
+│   (16×16 patches) │  每个 patch: 16×16×3 = 768 维
+└─────────┬─────────┘
+          │
+          ▼
+    + Position Embedding  (可学习的位置编码)
+    + [CLS] Token         (用于分类)
+          │
+          ▼
+┌───────────────────┐
+│   Transformer     │  12/24 层 Multi-Head Attention
+│     Encoder       │  + MLP + LayerNorm
+└─────────┬─────────┘
+          │
+          ▼
+     [CLS] output
+          │
+          ▼
+    Classification Head → 类别预测
+</code></pre>
+<hr>
+
+<h2>核心公式</h2>
+<h3>Patch Embedding</h3>
+<pre><code># 输入: x ∈ R^(H×W×C)
+# 切成 N = HW/P² 个 patch，每个 patch 展平后投影
+
+z₀ = [x_class; x¹_pE; x²_pE; ...; xᴺ_pE] + E_pos
+
+# x_class: [CLS] token
+# E: patch 投影矩阵 (P²C × D)
+# E_pos: 位置编码 (N+1 × D)
+</code></pre>
+
+<h3>Transformer Encoder</h3>
+<pre><code># L 层 Transformer
+for l in range(L):
+    z'_l = MSA(LN(z_{l-1})) + z_{l-1}   # Multi-Head Self-Attention
+    z_l  = MLP(LN(z'_l)) + z'_l          # Feed-Forward
+
+y = LN(z_L[0])  # 取 [CLS] token 输出
+</code></pre>
+<hr>
+
+<h2>模型规模</h2>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>Layers</th>
+<th>Hidden</th>
+<th>Heads</th>
+<th>Params</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ViT-Base</td>
+<td>12</td>
+<td>768</td>
+<td>12</td>
+<td>86M</td>
+</tr>
+<tr>
+<td>ViT-Large</td>
+<td>24</td>
+<td>1024</td>
+<td>16</td>
+<td>307M</td>
+</tr>
+<tr>
+<td>ViT-Huge</td>
+<td>32</td>
+<td>1280</td>
+<td>16</td>
+<td>632M</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>关键发现</h2>
+
+<h3>1. 数据规模是关键</h3>
+<ul>
+<li>ImageNet (1M) 上训练 → 不如 ResNet</li>
+<li>ImageNet-21K (14M) 上预训练 → 持平</li>
+<li>JFT-300M (300M) 上预训练 → <strong>超越 ResNet</strong></li>
+</ul>
+<blockquote>
+ViT 需要大规模数据！CNN 的归纳偏置（局部性、平移不变性）在小数据时有优势。
+</blockquote>
+
+<h3>2. 位置编码学到了什么？</h3>
+<p>可视化发现：相邻 patch 的位置编码相似，模型<strong>自己学会了 2D 结构</strong>。</p>
+
+<h3>3. Attention 可视化</h3>
+<p>浅层：局部注意力（类似卷积）<br>
+深层：全局注意力（看整张图）</p>
+<hr>
+
+<h2>与 CNN 对比</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>CNN (ResNet)</th>
+<th>ViT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>归纳偏置</strong></td>
+<td>局部性、平移不变性</td>
+<td>几乎没有</td>
+</tr>
+<tr>
+<td><strong>感受野</strong></td>
+<td>逐层扩大</td>
+<td>第一层就是全局</td>
+</tr>
+<tr>
+<td><strong>小数据</strong></td>
+<td>更好</td>
+<td>较差</td>
+</tr>
+<tr>
+<td><strong>大数据</strong></td>
+<td>饱和</td>
+<td>持续提升</td>
+</tr>
+<tr>
+<td><strong>计算效率</strong></td>
+<td>局部计算</td>
+<td>O(N²) 全局注意力</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>代码示例</h2>
+<pre><code>import torch
+from transformers import ViTModel, ViTImageProcessor
+from PIL import Image
+
+# 加载模型
+processor = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224')
+model = ViTModel.from_pretrained('google/vit-base-patch16-224')
+
+# 处理图像
+image = Image.open("cat.jpg")
+inputs = processor(images=image, return_tensors="pt")
+
+# 前向传播
+outputs = model(**inputs)
+last_hidden_state = outputs.last_hidden_state  # (1, 197, 768)
+cls_token = outputs.pooler_output              # (1, 768)
+
+print(f"Patch tokens: {last_hidden_state.shape}")
+print(f"CLS token: {cls_token.shape}")
+</code></pre>
+<hr>
+
+<h2>对后续工作的影响</h2>
+<ul>
+<li><strong>DeiT</strong> — 数据高效训练 ViT</li>
+<li><strong>Swin Transformer</strong> — 层次化 + 局部注意力</li>
+<li><strong>BEiT</strong> — 自监督预训练</li>
+<li><strong>MAE</strong> — Masked Autoencoder</li>
+<li><strong>CLIP</strong> — 用 ViT 做图像编码器</li>
+<li><strong>SAM</strong> — 分割一切</li>
+</ul>
+<hr>
+
+<h2>资源</h2>
+<ul>
+<li><strong>论文：</strong> <a href="https://arxiv.org/abs/2010.11929">arxiv:2010.11929</a></li>
+<li><strong>官方代码：</strong> <a href="https://github.com/google-research/vision_transformer">google-research/vision_transformer</a></li>
+<li><strong>timm 实现：</strong> <code>timm.create_model('vit_base_patch16_224')</code></li>
+</ul>
+<hr>
+
+<h2>个人思考</h2>
+<blockquote>
+ViT 证明了 Transformer 的通用性——不需要针对视觉任务设计特殊架构，直接复用 NLP 的 Transformer 就能 work。代价是需要更多数据，但在大模型时代，数据不是问题。
+</blockquote>
+
+    </div>
+</body>
+</html>

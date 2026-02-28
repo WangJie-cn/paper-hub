@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMDrive: Closed-Loop End-to-End Driving with LLMs</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; padding: 40px 20px; line-height: 1.8; }
+        .container { max-width: 900px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🎮 LMDrive: Closed-Loop End-to-End Driving with LLMs</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2312.07488">2312.07488</a> | <strong>作者:</strong> 香港科技大学 + 商汤 | <strong>年份:</strong> 2024</p>
+
+<h2>一句话总结</h2>
+<p>用 LLM 做 <strong>闭环端到端驾驶</strong>：接收自然语言指令 + 传感器输入，直接输出控制信号，在 CARLA 仿真器中实时运行。</p>
+<hr>
+
+<h2>核心贡献</h2>
+<ol>
+<li><strong>闭环驾驶</strong> — 在仿真器中实时运行，不只是离线评估</li>
+<li><strong>语言指令</strong> — 接受自然语言导航指令（"下个路口左转"）</li>
+<li><strong>端到端</strong> — 传感器 → LLM → 控制信号</li>
+<li><strong>多传感器融合</strong> — 相机 + LiDAR + 导航指令</li>
+</ol>
+<hr>
+
+<h2>系统架构</h2>
+<pre><code>┌─────────────────────────────────────────────────────┐
+│                    LMDrive                          │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
+│  │ Camera   │  │  LiDAR   │  │ Navigation Inst  │  │
+│  │ (多视角) │  │ (点云)   │  │ "Turn left..."   │  │
+│  └────┬─────┘  └────┬─────┘  └────────┬─────────┘  │
+│       │             │                  │            │
+│       ▼             ▼                  │            │
+│  ┌──────────┐  ┌──────────┐           │            │
+│  │ Vision   │  │  Point   │           │            │
+│  │ Encoder  │  │ Encoder  │           │            │
+│  └────┬─────┘  └────┬─────┘           │            │
+│       │             │                  │            │
+│       └──────┬──────┘                  │            │
+│              │                         │            │
+│              ▼                         ▼            │
+│       ┌────────────────────────────────────┐       │
+│       │          LLaMA-7B                  │       │
+│       │   [视觉tokens][点云tokens][指令]   │       │
+│       └──────────────┬─────────────────────┘       │
+│                      │                              │
+│                      ▼                              │
+│              ┌──────────────┐                       │
+│              │ Control Head │                       │
+│              │ [steer, throttle, brake]            │
+│              └──────────────┘                       │
+└─────────────────────────────────────────────────────┘
+                       │
+                       ▼
+              ┌──────────────┐
+              │   CARLA      │
+              │   Simulator  │
+              └──────────────┘
+</code></pre>
+<hr>
+
+<h2>核心设计</h2>
+
+<h3>1. 多模态输入</h3>
+<pre><code># 相机: 前/左/右视图
+camera_tokens = vision_encoder(multi_view_images)  # (N, 256, D)
+
+# LiDAR: BEV 投影
+lidar_tokens = point_encoder(lidar_bev)  # (M, D)
+
+# 导航指令: 文本
+nav_tokens = tokenize("Turn left at the next intersection")
+</code></pre>
+
+<h3>2. 控制信号输出</h3>
+<pre><code># LLM 输出 special tokens
+# 然后 MLP head 解码为连续控制值
+
+output_tokens = llm([visual, lidar, nav_tokens])
+
+# 方向盘: [-1, 1]
+# 油门: [0, 1]  
+# 刹车: [0, 1]
+steer, throttle, brake = control_head(output_tokens[-1])
+</code></pre>
+
+<h3>3. 闭环训练</h3>
+<pre><code># 在 CARLA 中收集数据
+for episode in episodes:
+    while not done:
+        obs = env.get_observation()
+        action = expert_policy(obs)  # 专家策略
+        env.step(action)
+        
+# 模仿学习
+loss = MSE(predicted_action, expert_action)
+</code></pre>
+<hr>
+
+<h2>语言指令示例</h2>
+<pre><code>"Continue straight ahead"
+"Turn left at the next intersection"
+"Change lane to the right"
+"Stop at the red light"
+"Follow the car ahead"
+"Park on the right side"
+</code></pre>
+<hr>
+
+<h2>实验结果</h2>
+
+<h3>CARLA Benchmark</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>DS ↑</th>
+<th>RC ↑</th>
+<th>IS ↑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TransFuser</td>
+<td>54.5</td>
+<td>78.4</td>
+<td>0.69</td>
+</tr>
+<tr>
+<td>InterFuser</td>
+<td>68.3</td>
+<td>85.2</td>
+<td>0.80</td>
+</tr>
+<tr>
+<td><strong>LMDrive</strong></td>
+<td><strong>76.1</strong></td>
+<td><strong>92.3</strong></td>
+<td><strong>0.82</strong></td>
+</tr>
+</tbody>
+</table>
+<p>DS: Driving Score, RC: Route Completion, IS: Infraction Score</p>
+
+<h3>语言理解</h3>
+<ul>
+<li>正确执行导航指令: 94.2%</li>
+<li>复杂场景理解: 87.5%</li>
+</ul>
+<hr>
+
+<h2>优势</h2>
+
+<h3>为什么用 LLM？</h3>
+<ol>
+<li><strong>泛化能力</strong> — 理解新的语言指令</li>
+<li><strong>常识推理</strong> — "红灯要停" 不需要显式学习</li>
+<li><strong>可解释性</strong> — 可以生成解释文本</li>
+</ol>
+
+<h3>vs 传统端到端</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>传统 E2E</th>
+<th>LMDrive</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>输入</td>
+<td>传感器</td>
+<td>传感器 + 语言</td>
+</tr>
+<tr>
+<td>推理</td>
+<td>黑盒 CNN</td>
+<td>LLM (可解释)</td>
+</tr>
+<tr>
+<td>泛化</td>
+<td>有限</td>
+<td>更强</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>局限性</h2>
+<ul>
+<li><strong>延迟</strong> — LLM 推理比 CNN 慢</li>
+<li><strong>仿真 Gap</strong> — CARLA → 真实世界</li>
+<li><strong>长尾场景</strong> — 罕见情况可能失败</li>
+</ul>
+<hr>
+
+<h2>资源</h2>
+<ul>
+<li><strong>论文:</strong> <a href="https://arxiv.org/abs/2312.07488">arxiv:2312.07488</a></li>
+<li><strong>代码:</strong> <a href="https://github.com/opendilab/LMDrive">github.com/opendilab/LMDrive</a></li>
+<li><strong>Demo 视频:</strong> <a href="https://github.com/opendilab/LMDrive#demo">GitHub Demo</a></li>
+</ul>
+<hr>
+
+<h2>个人思考</h2>
+<blockquote>
+LMDrive 展示了 LLM 驾驶的可能性。但我更关心延迟问题——自动驾驶需要实时响应，而 LLM 推理可能需要几百毫秒。也许未来需要小型专用模型，而不是通用 LLM。
+</blockquote>
+
+    </div>
+</body>
+</html>

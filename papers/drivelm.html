@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DriveLM: Driving with Language</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; padding: 40px 20px; line-height: 1.8; }
+        .container { max-width: 900px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🛣️ DriveLM: Driving with Language</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2312.14150">2312.14150</a> | <strong>作者:</strong> OpenDriveLab (上海AI Lab) | <strong>年份:</strong> 2024</p>
+
+<h2>一句话总结</h2>
+<p>构建 <strong>Graph VQA</strong> 数据集和基准，用结构化的问答形式表示驾驶场景的 <strong>感知-预测-规划</strong> 全流程。</p>
+<hr>
+
+<h2>核心贡献</h2>
+<ol>
+<li><strong>DriveLM 数据集</strong> — 377K QA 对，覆盖感知/预测/规划</li>
+<li><strong>Graph VQA</strong> — 用图结构组织 QA，体现逻辑依赖</li>
+<li><strong>DriveLM-Agent</strong> — 基于 VLM 的端到端驾驶 agent</li>
+<li><strong>基准测试</strong> — 评估 VLM 的驾驶理解能力</li>
+</ol>
+<hr>
+
+<h2>Graph VQA 设计</h2>
+<pre><code>传统 VQA:
+Q: "图中有什么车辆？"
+A: "有一辆红色轿车"
+→ 独立问答，无逻辑关联
+
+Graph VQA:
+┌─────────────────────────────────────────────┐
+│  感知层                                      │
+│  Q1: "检测到哪些物体？" → A1: [car_1, ped_2] │
+└──────────────────┬──────────────────────────┘
+                   │ 依赖
+                   ▼
+┌─────────────────────────────────────────────┐
+│  预测层                                      │
+│  Q2: "car_1 会怎么移动？" → A2: "向左变道"   │
+└──────────────────┬──────────────────────────┘
+                   │ 依赖
+                   ▼
+┌─────────────────────────────────────────────┐
+│  规划层                                      │
+│  Q3: "自车应该怎么做？" → A3: "减速让行"    │
+└─────────────────────────────────────────────┘
+</code></pre>
+
+<h3>三层结构</h3>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>任务</th>
+<th>示例问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Perception</strong></td>
+<td>目标检测、属性识别</td>
+<td>检测到哪些车辆？它们在哪个车道？</td>
+</tr>
+<tr>
+<td><strong>Prediction</strong></td>
+<td>行为预测、轨迹预测</td>
+<td>这辆车接下来会怎么做？</td>
+</tr>
+<tr>
+<td><strong>Planning</strong></td>
+<td>决策、轨迹规划</td>
+<td>自车应该加速还是减速？</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>数据集统计</h2>
+<pre><code>DriveLM-nuScenes:
+├── 696 场景 (来自 nuScenes)
+├── 4,072 关键帧
+├── 377,983 QA 对
+│   ├── Perception: 45%
+│   ├── Prediction: 25%
+│   └── Planning: 30%
+└── 平均每帧 93 个 QA
+</code></pre>
+
+<h3>问题类型</h3>
+<ul>
+<li><strong>Yes/No</strong> — "前方是否有行人？"</li>
+<li><strong>Multiple Choice</strong> — "这辆车最可能: A.直行 B.左转 C.右转"</li>
+<li><strong>Open-ended</strong> — "描述当前场景的交通状况"</li>
+<li><strong>Grounding</strong> — "指出危险物体的位置"</li>
+</ul>
+<hr>
+
+<h2>DriveLM-Agent</h2>
+<pre><code>┌─────────────────────────────────────────────┐
+│              Multi-view Images               │
+└──────────────────┬──────────────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────────────┐
+│           Vision Encoder (CLIP)             │
+└──────────────────┬──────────────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────────────┐
+│    Language Model (LLaMA / Vicuna)          │
+│    + Graph VQA Prompts                      │
+└──────────────────┬──────────────────────────┘
+                   │
+        ┌──────────┼──────────┐
+        ▼          ▼          ▼
+   Perception  Prediction  Planning
+   "有3辆车"   "车1左转"   "减速让行"
+                              │
+                              ▼
+                        Trajectory
+                        Prediction
+</code></pre>
+<hr>
+
+<h2>评估指标</h2>
+
+<h3>语言评估</h3>
+<ul>
+<li><strong>Accuracy</strong> — Yes/No 和选择题</li>
+<li><strong>BLEU/ROUGE</strong> — 开放式回答</li>
+<li><strong>GPT-4 Score</strong> — 语义相关性评分</li>
+</ul>
+
+<h3>驾驶评估</h3>
+<ul>
+<li><strong>L2 Error</strong> — 轨迹预测误差</li>
+<li><strong>Collision Rate</strong> — 碰撞率</li>
+</ul>
+<hr>
+
+<h2>实验结果</h2>
+
+<h3>VLM 基准测试</h3>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>Perception</th>
+<th>Prediction</th>
+<th>Planning</th>
+<th>Overall</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LLaVA-1.5</td>
+<td>42.3</td>
+<td>35.1</td>
+<td>28.7</td>
+<td>35.4</td>
+</tr>
+<tr>
+<td>InstructBLIP</td>
+<td>45.6</td>
+<td>38.2</td>
+<td>31.5</td>
+<td>38.4</td>
+</tr>
+<tr>
+<td>Qwen-VL</td>
+<td>48.2</td>
+<td>41.7</td>
+<td>35.3</td>
+<td>41.7</td>
+</tr>
+<tr>
+<td><strong>DriveLM-Agent</strong></td>
+<td><strong>62.5</strong></td>
+<td><strong>55.3</strong></td>
+<td><strong>48.9</strong></td>
+<td><strong>55.6</strong></td>
+</tr>
+</tbody>
+</table>
+
+<p><strong>发现：通用 VLM 在驾驶场景表现不佳，专门训练很有必要。</strong></p>
+<hr>
+
+<h2>关键洞察</h2>
+
+<h3>1. 为什么需要 Graph？</h3>
+<ul>
+<li>驾驶是 <strong>链式推理</strong>：感知 → 预测 → 规划</li>
+<li>后续问题 <strong>依赖</strong> 前面的答案</li>
+<li>Graph 结构让 VLM 学会这种依赖关系</li>
+</ul>
+
+<h3>2. 语言的优势</h3>
+<ul>
+<li><strong>可解释性</strong> — 为什么做这个决策？</li>
+<li><strong>泛化性</strong> — 语言描述更抽象</li>
+<li><strong>交互性</strong> — 可以追问</li>
+</ul>
+<hr>
+
+<h2>代码示例</h2>
+<pre><code># 加载 DriveLM 数据集
+from datasets import load_dataset
+
+dataset = load_dataset("OpenDriveLab/DriveLM")
+
+# 查看一个样本
+sample = dataset['train'][0]
+print(sample['image'])      # 多视角图像
+print(sample['qa_pairs'])   # Graph VQA 问答对
+
+# 示例 QA
+# {
+#   "question": "What objects are in the front camera view?",
+#   "answer": "There is a car at (234, 156) and a pedestrian at (89, 201)",
+#   "type": "perception",
+#   "depends_on": []
+# }
+</code></pre>
+<hr>
+
+<h2>与其他数据集对比</h2>
+<table>
+<thead>
+<tr>
+<th>数据集</th>
+<th>场景</th>
+<th>QA 对</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>nuScenes-QA</td>
+<td>1000</td>
+<td>460K</td>
+<td>只有感知</td>
+</tr>
+<tr>
+<td>Talk2Car</td>
+<td>850</td>
+<td>12K</td>
+<td>指令跟随</td>
+</tr>
+<tr>
+<td><strong>DriveLM</strong></td>
+<td>696</td>
+<td>378K</td>
+<td>感知+预测+规划，Graph 结构</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>资源</h2>
+<ul>
+<li><strong>论文：</strong> <a href="https://arxiv.org/abs/2312.14150">arxiv:2312.14150</a></li>
+<li><strong>项目：</strong> <a href="https://github.com/OpenDriveLab/DriveLM">github.com/OpenDriveLab/DriveLM</a></li>
+<li><strong>数据集：</strong> <a href="https://huggingface.co/datasets/OpenDriveLab/DriveLM">HuggingFace</a></li>
+<li><strong>你的数据浏览器：</strong> <a href="../datasets/drivelm-viewer.html">DriveLM Viewer</a></li>
+</ul>
+<hr>
+
+<h2>个人思考</h2>
+<blockquote>
+DriveLM 的核心思想是把驾驶问题"语言化"。传统方法输出数值（轨迹点），DriveLM 输出语言（"减速让行"）。这不仅提供可解释性，还可能让模型学到更抽象的驾驶知识。Graph 结构的设计也很聪明——它强制模型学习因果关系，而不只是输入-输出映射。
+</blockquote>
+
+    </div>
+</body>
+</html>

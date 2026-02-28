@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniAD: Planning-oriented Autonomous Driving</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; padding: 40px 20px; line-height: 1.8; }
+        .container { max-width: 900px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🎯 UniAD: Planning-oriented Autonomous Driving</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2212.10156">2212.10156</a> | <strong>作者:</strong> 上海AI Lab + 香港大学 | <strong>年份:</strong> 2023 (CVPR Best Paper)</p>
+
+<h2>一句话总结</h2>
+<p>将自动驾驶的 <strong>感知、预测、规划</strong> 统一到一个端到端框架，以 <strong>规划为导向</strong> 设计整个系统。</p>
+<hr>
+
+<h2>核心贡献</h2>
+<ol>
+<li><strong>统一框架</strong> — 检测、跟踪、地图、预测、规划一体化</li>
+<li><strong>Query-based 设计</strong> — 用 query 串联所有模块</li>
+<li><strong>Planning-oriented</strong> — 优化目标直指最终规划</li>
+<li><strong>CVPR 2023 Best Paper</strong></li>
+</ol>
+<hr>
+
+<h2>模型架构</h2>
+<pre><code>Multi-view Images
+       │
+       ▼
+┌──────────────────────────────────────────────────────┐
+│  BEV Encoder (BEVFormer style)                       │
+│  多视角图像 → BEV 特征                              │
+└─────────────────────┬────────────────────────────────┘
+                      │
+       ┌──────────────┼──────────────┬──────────────┐
+       ▼              ▼              ▼              │
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │
+│  TrackFormer │ │ MapFormer  │ │ MotionFormer│    │
+│  目标跟踪    │ │ 地图分割   │ │ 运动预测    │    │
+└──────┬──────┘ └──────┬──────┘ └──────┬──────┘    │
+       │               │               │            │
+       └───────────────┴───────────────┘            │
+                       │                            │
+                       ▼                            │
+              ┌─────────────────┐                   │
+              │   OccFormer     │                   │
+              │  占用网格预测   │                   │
+              └────────┬────────┘                   │
+                       │                            │
+                       ▼                            │
+              ┌─────────────────┐                   │
+              │   Planner       │ ←─────────────────┘
+              │   轨迹规划      │   (全部信息汇聚)
+              └─────────────────┘
+</code></pre>
+<hr>
+
+<h2>核心设计</h2>
+
+<h3>1. Agent Query</h3>
+<pre><code># 每个交通参与者用一个 query 表示
+# 这个 query 贯穿整个流程
+
+Q_agent → Detection → Tracking → Prediction → Planning
+           "检测"     "跟踪"      "预测轨迹"   "规划避让"
+</code></pre>
+
+<h3>2. 模块间信息流</h3>
+<ul>
+<li><strong>Track → Motion</strong>: 跟踪结果告诉预测模块"跟踪谁"</li>
+<li><strong>Map → Motion</strong>: 地图告诉预测"在哪条路上"</li>
+<li><strong>Motion → Planning</strong>: 预测结果告诉规划"怎么避让"</li>
+</ul>
+
+<h3>3. 联合训练</h3>
+<pre><code>L_total = λ₁L_detect + λ₂L_track + λ₃L_map 
+        + λ₄L_motion + λ₅L_occ + λ₆L_plan
+
+# 所有任务一起优化
+# 规划 loss 反向传播到感知
+</code></pre>
+<hr>
+
+<h2>实验结果</h2>
+
+<h3>nuScenes 规划</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>L2 (m) ↓</th>
+<th>Collision ↓</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IL (模仿学习)</td>
+<td>1.98</td>
+<td>0.43%</td>
+</tr>
+<tr>
+<td>ST-P3</td>
+<td>1.33</td>
+<td>0.23%</td>
+</tr>
+<tr>
+<td><strong>UniAD</strong></td>
+<td><strong>0.71</strong></td>
+<td><strong>0.05%</strong></td>
+</tr>
+</tbody>
+</table>
+
+<h3>各任务性能</h3>
+<ul>
+<li><strong>3D Detection:</strong> NDS 50.2 (纯视觉 SOTA 级别)</li>
+<li><strong>Tracking:</strong> AMOTA 38.2</li>
+<li><strong>Motion Prediction:</strong> minADE 0.71</li>
+</ul>
+<hr>
+
+<h2>关键洞察</h2>
+
+<h3>为什么要统一？</h3>
+<ol>
+<li><strong>避免误差累积</strong> — 独立模块的错误会传递</li>
+<li><strong>信息共享</strong> — 感知和规划可以互相帮助</li>
+<li><strong>端到端优化</strong> — 直接优化最终目标</li>
+</ol>
+
+<h3>为什么以规划为导向？</h3>
+<blockquote>
+感知不是目的，安全行驶才是。不需要检测所有物体，只需要检测影响规划的物体。
+</blockquote>
+<hr>
+
+<h2>代码</h2>
+<pre><code># 官方代码
+git clone https://github.com/OpenDriveLab/UniAD
+
+# 训练
+python train.py --config configs/uniad_base.py
+
+# 推理
+python inference.py --checkpoint uniad_base.pth
+</code></pre>
+<hr>
+
+<h2>后续工作</h2>
+<ul>
+<li><strong>VAD</strong> — 向量化自动驾驶</li>
+<li><strong>GenAD</strong> — 生成式自动驾驶</li>
+<li><strong>DriveVLM</strong> — 加入语言理解</li>
+</ul>
+<hr>
+
+<h2>资源</h2>
+<ul>
+<li><strong>论文:</strong> <a href="https://arxiv.org/abs/2212.10156">arxiv:2212.10156</a></li>
+<li><strong>代码:</strong> <a href="https://github.com/OpenDriveLab/UniAD">github.com/OpenDriveLab/UniAD</a></li>
+<li><strong>视频:</strong> <a href="https://www.youtube.com/watch?v=MvFHd7dEeCU">CVPR 2023 演讲</a></li>
+</ul>
+<hr>
+
+<h2>个人思考</h2>
+<blockquote>
+UniAD 最重要的贡献不是某个具体模块，而是 **统一思想**。它证明了端到端比模块化更强。这对自动驾驶的未来有深远影响：也许我们不需要精心设计每个模块的接口，只需要一个大模型从传感器直接输出轨迹。
+</blockquote>
+
+    </div>
+</body>
+</html>

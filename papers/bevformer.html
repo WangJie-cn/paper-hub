@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BEVFormer: Learning Bird's-Eye-View Representation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.8;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.05);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        pre code { background: none; padding: 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🦅 BEVFormer: Learning Bird's-Eye-View Representation</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2203.17270">2203.17270</a> | <strong>作者:</strong> Zhiqi Li 等 (南京大学 + 上海AI Lab) | <strong>年份:</strong> 2022</p>
+
+<h2>一句话总结</h2>
+<p>用 <strong>Transformer</strong> 将多视角相机图像融合到统一的 <strong>鸟瞰图 (BEV)</strong> 空间，实现纯视觉的 3D 目标检测和地图分割。</p>
+<hr>
+
+<h2>核心贡献</h2>
+<ol>
+<li><strong>BEV Query</strong> — 用可学习的 query 表示 BEV 空间</li>
+<li><strong>Spatial Cross-Attention</strong> — 从多视角图像采样特征</li>
+<li><strong>Temporal Self-Attention</strong> — 融合历史 BEV 特征</li>
+<li><strong>端到端训练</strong> — 无需深度估计预处理</li>
+</ol>
+<hr>
+
+<h2>为什么需要 BEV？</h2>
+<pre><code>多视角相机视图 (Perspective View)
+┌───────┐ ┌───────┐ ┌───────┐
+│ Front │ │ Left  │ │ Right │  6 个相机
+│ View  │ │ View  │ │ View  │  各自独立
+└───────┘ └───────┘ └───────┘
+    ↓         ↓         ↓
+    └─────────┼─────────┘
+              ↓
+┌─────────────────────────┐
+│     Bird's Eye View     │  统一表示
+│    (鸟瞰图/俯视图)       │  便于规划
+│   ┌───┐                 │
+│   │🚗│← 自车            │
+│   └───┘                 │
+└─────────────────────────┘
+</code></pre>
+
+<h3>BEV 优势</h3>
+<ul>
+<li><strong>统一坐标系</strong> — 所有视角融合到同一空间</li>
+<li><strong>便于下游任务</strong> — 规划、预测都在 BEV 空间进行</li>
+<li><strong>避免遮挡歧义</strong> — 3D 位置明确</li>
+</ul>
+<hr>
+
+<h2>模型架构</h2>
+<pre><code>┌─────────────────────────────────────────────────┐
+│                 Multi-Camera Input               │
+│   [Front] [Front-Left] [Front-Right] ...        │
+└─────────────────────┬───────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────┐
+│              Image Backbone (ResNet)             │
+│              + FPN (多尺度特征)                  │
+└─────────────────────┬───────────────────────────┘
+                      │ 图像特征 F_view
+                      │
+      ┌───────────────┼───────────────┐
+      │               │               │
+      ▼               ▼               ▼
+┌───────────┐   ┌───────────┐   ┌───────────┐
+│   BEV     │   │  Spatial  │   │ Temporal  │
+│  Queries  │ → │  Cross    │ → │   Self    │
+│  (H×W×C)  │   │ Attention │   │ Attention │
+└───────────┘   └───────────┘   └───────────┘
+      │               │               │
+      └───────────────┴───────────────┘
+                      │
+                      ▼
+              BEV Features B_t
+                      │
+      ┌───────────────┼───────────────┐
+      │               │               │
+      ▼               ▼               ▼
+  3D Detection    Map Segmentation   ...
+</code></pre>
+<hr>
+
+<h2>核心机制</h2>
+
+<h3>1. BEV Queries</h3>
+<pre><code># 可学习的 BEV query 网格
+Q_bev ∈ R^(H × W × C)
+
+# H, W: BEV 网格大小 (如 200×200)
+# C: 特征维度 (256)
+# 每个 query 对应 BEV 空间中的一个位置
+</code></pre>
+
+<h3>2. Spatial Cross-Attention</h3>
+<pre><code># 核心思想：BEV query 去图像特征中"采样"
+
+for each BEV query Q at position (x, y):
+    # 在 z 轴上采样多个高度
+    for z in [z_1, z_2, ..., z_n]:
+        # 3D 点 (x, y, z) 投影到各相机
+        for cam in cameras:
+            (u, v) = project_3d_to_2d((x, y, z), cam)
+            # 从图像特征采样
+            f = bilinear_sample(F_cam, u, v)
+        
+    # 加权聚合
+    Q_updated = Attention(Q, sampled_features)
+</code></pre>
+
+<h3>3. Temporal Self-Attention</h3>
+<pre><code># 融合历史 BEV 特征
+B_t = TemporalAttention(Q_t, B_{t-1})
+
+# 关键：需要对齐！
+# 根据自车运动将历史 BEV 变换到当前坐标系
+B'_{t-1} = warp(B_{t-1}, ego_motion)
+</code></pre>
+<hr>
+
+<h2>Deformable Attention</h2>
+<p>BEVFormer 使用 <strong>Deformable Attention</strong> 提高效率：</p>
+<pre><code># 标准 Attention: 所有位置
+Attention(Q, K, V) = softmax(QK^T)V  # O(N²)
+
+# Deformable Attention: 只采样 K 个参考点
+DeformAttn(Q, p, F) = Σ_k A_k · F(p + Δp_k)  # O(NK)
+
+# Δp_k: 可学习的偏移
+# A_k: 可学习的权重
+</code></pre>
+<hr>
+
+<h2>实验结果</h2>
+
+<h3>nuScenes 3D Detection</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>传感器</th>
+<th>NDS ↑</th>
+<th>mAP ↑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PointPillars</td>
+<td>LiDAR</td>
+<td>45.3</td>
+<td>30.5</td>
+</tr>
+<tr>
+<td>DETR3D</td>
+<td>Camera</td>
+<td>42.5</td>
+<td>34.6</td>
+</tr>
+<tr>
+<td>PETR</td>
+<td>Camera</td>
+<td>44.1</td>
+<td>36.1</td>
+</tr>
+<tr>
+<td><strong>BEVFormer</strong></td>
+<td>Camera</td>
+<td><strong>51.7</strong></td>
+<td><strong>41.6</strong></td>
+</tr>
+</tbody>
+</table>
+
+<h3>BEV Segmentation</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>mIoU (车辆)</th>
+<th>mIoU (道路)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LSS</td>
+<td>32.1</td>
+<td>72.9</td>
+</tr>
+<tr>
+<td><strong>BEVFormer</strong></td>
+<td><strong>46.0</strong></td>
+<td><strong>80.1</strong></td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>与其他方法对比</h2>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>View Transform</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LSS</td>
+<td>深度估计 + Lifting</td>
+<td>显式深度，需要 GT</td>
+</tr>
+<tr>
+<td>DETR3D</td>
+<td>3D Query → 2D 投影</td>
+<td>稀疏 query</td>
+</tr>
+<tr>
+<td>PETR</td>
+<td>3D 位置编码</td>
+<td>无显式投影</td>
+</tr>
+<tr>
+<td><strong>BEVFormer</strong></td>
+<td>BEV Query + Cross-Attn</td>
+<td>密集 BEV + 时序</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>代码示例</h2>
+<pre><code># 使用 mmdet3d
+from mmdet3d.models import build_detector
+from mmdet3d.apis import inference_detector
+
+# 加载配置和模型
+config = 'configs/bevformer/bevformer_base.py'
+checkpoint = 'bevformer_base.pth'
+model = build_detector(config, checkpoint)
+
+# 推理
+result = inference_detector(model, multi_view_images)
+
+# 结果包含
+# - 3D bounding boxes
+# - BEV segmentation maps
+</code></pre>
+<hr>
+
+<h2>后续工作</h2>
+<ul>
+<li><strong>BEVFormer v2</strong> — 更大模型、更好性能</li>
+<li><strong>StreamPETR</strong> — 流式时序建模</li>
+<li><strong>UniAD</strong> — 统一感知+规划</li>
+<li><strong>VAD</strong> — 向量化自动驾驶</li>
+</ul>
+<hr>
+
+<h2>资源</h2>
+<ul>
+<li><strong>论文：</strong> <a href="https://arxiv.org/abs/2203.17270">arxiv:2203.17270</a></li>
+<li><strong>代码：</strong> <a href="https://github.com/fundamentalvision/BEVFormer">github.com/fundamentalvision/BEVFormer</a></li>
+<li><strong>视频：</strong> <a href="https://www.youtube.com/watch?v=v4jPbPc2bL0">BEVFormer 解读</a></li>
+</ul>
+<hr>
+
+<h2>个人思考</h2>
+<blockquote>
+BEVFormer 的关键洞察：<strong>不要显式估计深度，让模型自己学</strong>。通过 Spatial Cross-Attention 在多个高度采样，模型隐式学会了哪些高度最相关。这比 LSS 的显式深度估计更鲁棒。时序融合也很精彩——自动驾驶的时序一致性很重要。
+</blockquote>
+
+    </div>
+</body>
+</html>

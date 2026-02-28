@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwen-VL: A Versatile Vision-Language Model</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; padding: 40px 20px; line-height: 1.8; }
+        .container { max-width: 900px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🌐 Qwen-VL: A Versatile Vision-Language Model</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2308.12966">2308.12966</a> | <strong>作者:</strong> 阿里巴巴通义实验室 | <strong>年份:</strong> 2023</p>
+
+<h2>一句话总结</h2>
+<p>阿里的多模态大模型，支持 <strong>中英双语</strong>、<strong>多图输入</strong>、<strong>高分辨率 OCR</strong>，在中文场景表现尤其强。</p>
+<hr>
+
+<h2>核心贡献</h2>
+<ol>
+<li><strong>细粒度视觉理解</strong> — 支持 bbox 输入/输出（Grounding）</li>
+<li><strong>多图多轮对话</strong> — 同时理解多张图片</li>
+<li><strong>高分辨率处理</strong> — 动态分辨率，适合 OCR</li>
+<li><strong>中英双语</strong> — 国内首个强力开源 VLM</li>
+</ol>
+<hr>
+
+<h2>模型架构</h2>
+<pre><code>┌─────────────────────────────────────────┐
+│  Image(s) + Bounding Boxes (可选)       │
+└─────────────────┬───────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│  Vision Encoder: ViT-bigG (1.9B)        │
+│  + Position-aware Adapter               │
+│  输出: 256 visual tokens per image      │
+└─────────────────┬───────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│  Single-layer Cross-attention           │
+│  (压缩 visual tokens)                   │
+└─────────────────┬───────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│  Qwen-7B / Qwen-14B LLM                 │
+│  [图像tokens] [文本tokens]              │
+└─────────────────────────────────────────┘
+</code></pre>
+<hr>
+
+<h2>特色功能</h2>
+
+<h3>1. Grounding（定位）</h3>
+<pre><code># 输入带 bbox
+User: &lt;img&gt;picture.jpg&lt;/img&gt; 描述 &lt;box&gt;(120,80),(450,320)&lt;/box&gt; 区域
+
+# 输出带 bbox
+Assistant: 这是一只橙色的猫 &lt;box&gt;(120,80),(450,320)&lt;/box&gt;
+</code></pre>
+
+<h3>2. 多图理解</h3>
+<pre><code>User: &lt;img&gt;img1.jpg&lt;/img&gt; &lt;img&gt;img2.jpg&lt;/img&gt;
+这两张图有什么区别？

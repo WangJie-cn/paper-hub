@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SigLIP: Sigmoid Loss for Language Image Pre-Training</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; padding: 40px 20px; line-height: 1.8; }
+        .container { max-width: 900px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>✍️ SigLIP: Sigmoid Loss for Language Image Pre-Training</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2303.15343">2303.15343</a> | <strong>作者:</strong> Xiaohua Zhai 等 (Google) | <strong>年份:</strong> 2023</p>
+
+<h2>一句话总结</h2>
+<p>把 CLIP 的 Softmax 对比损失换成 <strong>Sigmoid 二分类损失</strong>，训练更简单、扩展性更好，效果还更强。</p>
+<hr>
+
+<h2>核心贡献</h2>
+<ol>
+<li><strong>Sigmoid Loss</strong> — 每对图文独立判断是否匹配</li>
+<li><strong>去掉全局归一化</strong> — 不需要 all-gather，分布式更简单</li>
+<li><strong>更好的扩展性</strong> — 支持更大 batch size</li>
+<li><strong>更强性能</strong> — 同规模下超越 CLIP</li>
+</ol>
+<hr>
+
+<h2>CLIP vs SigLIP 损失函数</h2>
+
+<h3>CLIP: Softmax (InfoNCE)</h3>
+<pre><code># 需要全局归一化 (所有负样本的指数和)
+L_clip = -log( exp(sim(I_i, T_i)/τ) / Σⱼ exp(sim(I_i, T_j)/τ) )
+
+# 问题：
+# 1. 需要 all-gather 所有 GPU 的样本
+# 2. 内存 O(batch²) 用于相似度矩阵
+# 3. 负样本数量 = batch_size - 1
+</code></pre>
+
+<h3>SigLIP: Sigmoid (Binary)</h3>
+<pre><code># 每对独立做二分类
+z_ij = sim(I_i, T_j) * γ + b  # γ, b 是可学习的
+y_ij = 1 if i==j else -1     # 正样本+1，负样本-1
+
+L_siglip = -log(σ(y_ij * z_ij))  # 标准二分类
+
+# 优势：
+# 1. 不需要全局归一化
+# 2. 可以做 chunked 计算，省内存
+# 3. 正负样本比例可调
+</code></pre>
+<hr>
+
+<h2>直观理解</h2>
+<pre><code>CLIP 思路:
+"在 batch 中，(图i, 文i) 是唯一匹配的"
+→ 相对排名问题
+
+SigLIP 思路:
+"(图i, 文j) 这一对，匹配还是不匹配？"
+→ 独立二分类问题
+
+结果：SigLIP 更简单，效果更好！
+</code></pre>
+<hr>
+
+<h2>实现细节</h2>
+
+<h3>Chunked Sigmoid Loss</h3>
+<pre><code># 不需要一次算完整个 B×B 矩阵
+for chunk_i in chunks(images):
+    for chunk_t in chunks(texts):
+        # 只算当前 chunk 的损失
+        loss += sigmoid_loss(chunk_i, chunk_t)
+
+# 内存: O(chunk_size²) instead of O(batch²)
+</code></pre>
+
+<h3>Bias 初始化</h3>
+<pre><code># 重要！bias 初始化为 -10
+# 让初始预测偏向"不匹配"（因为大部分对确实不匹配）
+b = -10
+</code></pre>
+<hr>
+
+<h2>实验结果</h2>
+
+<h3>Zero-shot ImageNet</h3>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>参数量</th>
+<th>数据量</th>
+<th>Top-1 Acc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLIP ViT-B/16</td>
+<td>86M</td>
+<td>400M</td>
+<td>68.3%</td>
+</tr>
+<tr>
+<td><strong>SigLIP ViT-B/16</strong></td>
+<td>86M</td>
+<td>400M</td>
+<td><strong>71.1%</strong></td>
+</tr>
+<tr>
+<td>CLIP ViT-L/14</td>
+<td>307M</td>
+<td>400M</td>
+<td>75.5%</td>
+</tr>
+<tr>
+<td><strong>SigLIP ViT-L/14</strong></td>
+<td>307M</td>
+<td>400M</td>
+<td><strong>77.4%</strong></td>
+</tr>
+</tbody>
+</table>
+
+<h3>Batch Size 扩展</h3>
+<table>
+<thead>
+<tr>
+<th>Batch Size</th>
+<th>CLIP (需要 all-gather)</th>
+<th>SigLIP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>32K</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>128K</td>
+<td>内存爆</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>1M</td>
+<td>✗</td>
+<td>✓ (chunked)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>代码示例</h2>
+<pre><code>import torch
+import torch.nn.functional as F
+
+def siglip_loss(image_emb, text_emb, temperature=1.0, bias=-10.0):
+    """
+    SigLIP Sigmoid Loss
+    """
+    # 计算相似度矩阵
+    logits = image_emb @ text_emb.T * temperature + bias
+    
+    # 构建标签：对角线为 1，其他为 -1
+    n = logits.shape[0]
+    labels = 2 * torch.eye(n, device=logits.device) - 1
+    
+    # Sigmoid 二分类损失
+    loss = -F.logsigmoid(labels * logits).mean()
+    
+    return loss
+
+# 使用
+image_features = model.encode_image(images)  # (B, D)
+text_features = model.encode_text(texts)     # (B, D)
+
+# 归一化
+image_features = F.normalize(image_features, dim=-1)
+text_features = F.normalize(text_features, dim=-1)
+
+loss = siglip_loss(image_features, text_features)
+</code></pre>
+<hr>
+
+<h2>为什么 Sigmoid 更好？</h2>
+<ol>
+<li><strong>独立性</strong> — 每对独立评估，不受其他样本影响</li>
+<li><strong>稳定梯度</strong> — 避免 softmax 的数值问题</li>
+<li><strong>灵活负样本</strong> — 可以用更多负样本</li>
+<li><strong>简单分布式</strong> — 不需要跨 GPU 同步</li>
+</ol>
+<hr>
+
+<h2>应用</h2>
+<p>SigLIP 被广泛用于新一代 VLM：</p>
+<ul>
+<li><strong>PaLI-X</strong> — Google 的多模态大模型</li>
+<li><strong>Gemini</strong> — Google 的 VLM</li>
+<li><strong>LLaVA-NeXT</strong> — 用 SigLIP 做视觉编码器</li>
+</ul>
+<hr>
+
+<h2>资源</h2>
+<ul>
+<li><strong>论文：</strong> <a href="https://arxiv.org/abs/2303.15343">arxiv:2303.15343</a></li>
+<li><strong>HuggingFace：</strong> <a href="https://huggingface.co/google/siglip-base-patch16-224">google/siglip-base-patch16-224</a></li>
+</ul>
+<hr>
+
+<h2>个人思考</h2>
+<blockquote>
+SigLIP 告诉我们：<strong>简单往往更好</strong>。Softmax 的"竞争"机制看起来合理，但 Sigmoid 的"独立判断"更直接。而且从工程角度，去掉 all-gather 让分布式训练简单太多了。
+</blockquote>
+
+    </div>
+</body>
+</html>

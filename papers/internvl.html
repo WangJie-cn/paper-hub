@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InternVL: Scaling up Vision Foundation Models</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; padding: 40px 20px; line-height: 1.8; }
+        .container { max-width: 900px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🔮 InternVL: Scaling up Vision Foundation Models</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2312.14238">2312.14238</a> | <strong>作者:</strong> 上海AI Lab (书生团队) | <strong>年份:</strong> 2023</p>
+
+<h2>一句话总结</h2>
+<p>6B 参数的视觉基础模型，在 <strong>图像分类、检测、分割、VLM</strong> 等任务上全面刷榜，证明视觉模型也能 scale up。</p>
+<hr>
+
+<h2>核心贡献</h2>
+<ol>
+<li><strong>InternViT-6B</strong> — 最大的开源视觉 Transformer</li>
+<li><strong>QLLaMA</strong> — 跨模态对齐的 LLM</li>
+<li><strong>渐进式训练</strong> — 对比学习 → 生成式学习</li>
+<li><strong>全任务 SOTA</strong> — 18 个视觉-语言 benchmark 最优</li>
+</ol>
+<hr>
+
+<h2>模型架构</h2>
+<pre><code>┌─────────────────────────────────────────────────┐
+│              InternVL 架构                       │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│   ┌─────────────────┐   ┌─────────────────┐    │
+│   │  InternViT-6B   │   │  QLLaMA-20B     │    │
+│   │  视觉编码器      │   │  语言解码器     │    │
+│   │  48层 ViT       │   │  带 Q-Former    │    │
+│   │  3200 dim       │   │                 │    │
+│   └────────┬────────┘   └────────┬────────┘    │
+│            │                     │              │
+│            └──────────┬──────────┘              │
+│                       │                         │
+│              InternVL-Chat                      │
+│              (完整 VLM)                         │
+└─────────────────────────────────────────────────┘
+</code></pre>
+
+<h3>InternViT-6B 规格</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Layers</td>
+<td>48</td>
+</tr>
+<tr>
+<td>Hidden dim</td>
+<td>3200</td>
+</tr>
+<tr>
+<td>Heads</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Patch size</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Parameters</td>
+<td>5.9B</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>训练策略</h2>
+
+<h3>Stage 1: 对比学习</h3>
+<pre><code>数据: 大规模图文对 (类似 CLIP)
+目标: 学习视觉-语言对齐
+Loss: InfoNCE
+</code></pre>
+
+<h3>Stage 2: 生成式学习</h3>
+<pre><code>数据: 图文对话、VQA、Caption
+目标: 学习视觉理解和生成
+Loss: Next Token Prediction
+</code></pre>
+
+<h3>渐进式扩展</h3>
+<pre><code>ViT-H (600M) → InternViT-2B → InternViT-6B
+逐步扩大模型，继承小模型的参数
+</code></pre>
+<hr>
+
+<h2>实验结果</h2>
+
+<h3>图像分类</h3>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>ImageNet</th>
+<th>参数量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ViT-22B</td>
+<td>89.5%</td>
+<td>22B</td>
+</tr>
+<tr>
+<td><strong>InternViT-6B</strong></td>
+<td><strong>90.0%</strong></td>
+<td>6B</td>
+</tr>
+</tbody>
+</table>
+
+<h3>多模态 Benchmark</h3>
+<table>
+<thead>
+<tr>
+<th>Benchmark</th>
+<th>Qwen-VL</th>
+<th>LLaVA-1.5</th>
+<th>InternVL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MMBench</td>
+<td>74.5</td>
+<td>67.7</td>
+<td><strong>82.2</strong></td>
+</tr>
+<tr>
+<td>SEED-Bench</td>
+<td>72.7</td>
+<td>66.1</td>
+<td><strong>75.4</strong></td>
+</tr>
+<tr>
+<td>TextVQA</td>
+<td>63.8</td>
+<td>61.3</td>
+<td><strong>70.1</strong></td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>关键设计</h2>
+
+<h3>1. 动态分辨率</h3>
+<pre><code># 根据图像大小动态调整 patch 数量
+if image.size > threshold:
+    use_high_res_mode()  # 更多 patch
+else:
+    use_standard_mode()
+</code></pre>
+
+<h3>2. Pixel Shuffle</h3>
+<pre><code># 高效下采样视觉 token
+# 4个相邻 token → 1个 token
+visual_tokens = pixel_shuffle(visual_tokens, scale=0.5)
+</code></pre>
+<hr>
+
+<h2>InternVL 系列</h2>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>视觉编码器</th>
+<th>LLM</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>InternVL 1.0</td>
+<td>InternViT-6B</td>
+<td>QLLaMA</td>
+<td>首发</td>
+</tr>
+<tr>
+<td>InternVL 1.5</td>
+<td>InternViT-6B</td>
+<td>InternLM2</td>
+<td>更强中文</td>
+</tr>
+<tr>
+<td>InternVL 2.0</td>
+<td>InternViT-300M~6B</td>
+<td>多种 LLM</td>
+<td>模块化</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>代码示例</h2>
+<pre><code>from transformers import AutoModel, AutoTokenizer
+
+model = AutoModel.from_pretrained(
+    "OpenGVLab/InternVL-Chat-V1-5",
+    trust_remote_code=True
+).cuda()
+tokenizer = AutoTokenizer.from_pretrained(
+    "OpenGVLab/InternVL-Chat-V1-5",
+    trust_remote_code=True
+)
+
+# 推理
+response = model.chat(
+    tokenizer,
+    pixel_values=image,
+    question="描述这张图片"
+)
+print(response)
+</code></pre>
+<hr>
+
+<h2>资源</h2>
+<ul>
+<li><strong>论文:</strong> <a href="https://arxiv.org/abs/2312.14238">arxiv:2312.14238</a></li>
+<li><strong>代码:</strong> <a href="https://github.com/OpenGVLab/InternVL">github.com/OpenGVLab/InternVL</a></li>
+<li><strong>Demo:</strong> <a href="https://internvl.opengvlab.com/">internvl.opengvlab.com</a></li>
+</ul>
+<hr>
+
+<h2>个人思考</h2>
+<blockquote>
+InternVL 证明了视觉模型也遵循 scaling law。6B 的视觉编码器比 CLIP 的 400M 强太多。这暗示未来 VLM 的瓶颈可能不再是 LLM，而是视觉编码器。
+</blockquote>
+
+    </div>
+</body>
+</html>

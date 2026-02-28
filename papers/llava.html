@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLaVA: Visual Instruction Tuning</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.8;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.05);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; }
+        pre code { background: none; padding: 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🦙 LLaVA: Visual Instruction Tuning</h1>
+<p><strong>arxiv:</strong> <a href="https://arxiv.org/abs/2304.08485">2304.08485</a> | <strong>作者:</strong> Haotian Liu 等 (UW-Madison + Microsoft) | <strong>年份:</strong> 2023</p>
+
+<h2>一句话总结</h2>
+<p>用 GPT-4 生成 <strong>视觉指令数据</strong>，训练一个能看图聊天的开源多模态大模型，简单架构 + 聪明数据 = 强效果。</p>
+<hr>
+
+<h2>核心贡献</h2>
+<ol>
+<li><strong>视觉指令微调</strong> — 首次将 instruction tuning 扩展到多模态</li>
+<li><strong>数据生成流程</strong> — 用 GPT-4 生成 150K 高质量图文对话</li>
+<li><strong>简洁架构</strong> — CLIP + LLM + 简单投影层</li>
+<li><strong>全开源</strong> — 模型、数据、代码全部公开</li>
+</ol>
+<hr>
+
+<h2>模型架构</h2>
+<pre><code>┌─────────────────┐
+│     Image       │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  CLIP ViT-L/14  │  冻结，提取视觉特征
+│  (Vision Encoder)│  输出: 576 tokens (24×24)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Linear/MLP     │  可训练，对齐视觉-语言
+│  Projection     │  将视觉 token 投影到 LLM 空间
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────┐
+│        Vicuna / LLaMA           │
+│  [视觉tokens] [文本tokens]       │
+│       ↓                         │
+│   Autoregressive Generation     │
+└─────────────────────────────────┘
+</code></pre>
+
+<h3>关键设计</h3>
+<ul>
+<li><strong>视觉编码器：</strong> CLIP ViT-L/14 (冻结)</li>
+<li><strong>投影层：</strong> 简单的线性层 or 2 层 MLP</li>
+<li><strong>语言模型：</strong> Vicuna-7B/13B (指令微调的 LLaMA)</li>
+</ul>
+<hr>
+
+<h2>训练流程</h2>
+
+<h3>Stage 1: 预训练（对齐）</h3>
+<pre><code>数据: CC-595K (图像-caption 对)
+训练: 只训练投影层，冻结 Vision Encoder 和 LLM
+目标: 学习视觉-语言对齐
+</code></pre>
+
+<h3>Stage 2: 指令微调</h3>
+<pre><code>数据: LLaVA-Instruct-150K (GPT-4 生成)
+训练: 训练投影层 + LLM (LoRA 或全量)
+目标: 学习遵循视觉指令
+</code></pre>
+<hr>
+
+<h2>数据生成（精华！）</h2>
+
+<h3>用 GPT-4 生成训练数据</h3>
+<pre><code>输入给 GPT-4:
+- 图像的 caption
+- 图像的 bounding boxes（来自目标检测）
+- 任务类型（对话/详细描述/复杂推理）
+
+GPT-4 输出:
+- 多轮对话
+- 基于视觉内容的问答
+</code></pre>
+
+<h3>三种数据类型</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>数量</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Conversation</td>
+<td>58K</td>
+<td>Q: 图里有什么动物? A: 一只橙色的猫...</td>
+</tr>
+<tr>
+<td>Detail Description</td>
+<td>23K</td>
+<td>详细描述这张图片的所有元素...</td>
+</tr>
+<tr>
+<td>Complex Reasoning</td>
+<td>77K</td>
+<td>为什么这个人看起来很开心?</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>输入格式</h2>
+<pre><code># 系统提示
+System: A chat between a user and an AI assistant...
+
+# 用户输入（包含图像）
+Human: &lt;image&gt;
+What is unusual about this image?
+
+# 模型回复
+Assistant: The unusual thing about this image is...
+</code></pre>
+
+<p>其中 <code>&lt;image&gt;</code> 会被替换为 576 个视觉 token。</p>
+<hr>
+
+<h2>实验结果</h2>
+
+<h3>Science QA（多选题）</h3>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>准确率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPT-4 (text only)</td>
+<td>67.3%</td>
+</tr>
+<tr>
+<td>LLaVA</td>
+<td>90.9%</td>
+</tr>
+<tr>
+<td>LLaVA + GPT-4 判断</td>
+<td><strong>92.5%</strong></td>
+</tr>
+</tbody>
+</table>
+
+<h3>GPT-4 评估（相对分数）</h3>
+<p>在对话、详细描述、复杂推理任务上，LLaVA 达到 GPT-4 85%+ 的水平。</p>
+<hr>
+
+<h2>代码示例</h2>
+<pre><code># 使用 transformers
+from transformers import LlavaProcessor, LlavaForConditionalGeneration
+from PIL import Image
+
+model_id = "llava-hf/llava-1.5-7b-hf"
+processor = LlavaProcessor.from_pretrained(model_id)
+model = LlavaForConditionalGeneration.from_pretrained(model_id)
+
+image = Image.open("example.jpg")
+prompt = "USER: &lt;image&gt;\nWhat is shown in this image?\nASSISTANT:"
+
+inputs = processor(text=prompt, images=image, return_tensors="pt")
+output = model.generate(**inputs, max_new_tokens=100)
+print(processor.decode(output[0], skip_special_tokens=True))
+</code></pre>
+<hr>
+
+<h2>LLaVA 1.5 改进</h2>
+<ul>
+<li><strong>MLP Projection</strong> — 2 层 MLP 替代线性层</li>
+<li><strong>更高分辨率</strong> — 336×336 输入</li>
+<li><strong>更多数据</strong> — 665K 预训练 + 665K 微调</li>
+<li><strong>学术任务数据</strong> — 加入 VQA、OCR 等数据</li>
+</ul>
+<hr>
+
+<h2>与其他 VLM 对比</h2>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>视觉编码器</th>
+<th>LLM</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LLaVA</td>
+<td>CLIP ViT-L</td>
+<td>Vicuna</td>
+<td>简单高效</td>
+</tr>
+<tr>
+<td>MiniGPT-4</td>
+<td>EVA-CLIP</td>
+<td>Vicuna</td>
+<td>Q-Former</td>
+</tr>
+<tr>
+<td>InstructBLIP</td>
+<td>EVA-CLIP</td>
+<td>Vicuna/FlanT5</td>
+<td>更强 Q-Former</td>
+</tr>
+<tr>
+<td>Qwen-VL</td>
+<td>ViT-bigG</td>
+<td>Qwen</td>
+<td>中文、OCR</td>
+</tr>
+</tbody>
+</table>
+<hr>
+
+<h2>资源</h2>
+<ul>
+<li><strong>论文：</strong> <a href="https://arxiv.org/abs/2304.08485">arxiv:2304.08485</a></li>
+<li><strong>项目主页：</strong> <a href="https://llava-vl.github.io/">llava-vl.github.io</a></li>
+<li><strong>代码：</strong> <a href="https://github.com/haotian-liu/LLaVA">github.com/haotian-liu/LLaVA</a></li>
+<li><strong>Demo：</strong> <a href="https://llava.hliu.cc/">llava.hliu.cc</a></li>
+</ul>
+<hr>
+
+<h2>个人思考</h2>
+<blockquote>
+LLaVA 的成功说明：<strong>数据质量 > 模型复杂度</strong>。相比 Q-Former 这样的复杂设计，LLaVA 用简单的线性投影 + 高质量 GPT-4 生成数据，取得了更好的效果。这启发我们：在 VLM 领域，投资数据可能比投资架构更划算。
+</blockquote>
+
+    </div>
+</body>
+</html>
