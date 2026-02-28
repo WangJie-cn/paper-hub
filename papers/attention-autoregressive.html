@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Attention, Cross-Attention 与自回归详解</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; padding: 40px 20px; line-height: 1.8; }
+        .container { max-width: 1000px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+        .diagram { background: rgba(0,0,0,0.3); padding: 25px; border-radius: 12px; margin: 20px 0; overflow-x: auto; }
+        .highlight { color: #00ff88; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>🔄 Self-Attention, Cross-Attention 与自回归详解</h1>
+<p><strong>类型:</strong> 架构笔记 | <strong>主题:</strong> Transformer 核心机制</p>
+
+<hr>
+
+<h2>📊 Self-Attention vs Cross-Attention</h2>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Self-Attention</th>
+<th>Cross-Attention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Q, K, V 来源</strong></td>
+<td>全部来自同一序列</td>
+<td>Q 来自一个序列，K/V 来自另一个</td>
+</tr>
+<tr>
+<td><strong>作用</strong></td>
+<td>序列内部建模</td>
+<td>跨模态/序列融合</td>
+</tr>
+<tr>
+<td><strong>典型应用</strong></td>
+<td>BERT、GPT encoder</td>
+<td>VLM 图文融合、机器翻译</td>
+</tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>🔵 Self-Attention（自注意力）</h2>
+
+<h3>核心思想</h3>
+<p>序列中的每个位置都去"看"序列中的所有其他位置，计算它们的相关性。</p>
+
+<div class="diagram">
+<pre>
+输入序列 X = ["我", "爱", "北京"]
+
+              Q(Query)    K(Key)     V(Value)
+                ↓           ↓           ↓
+"我"    →    q₁ ───────→ 与所有 k 计算相似度 → 加权求和 v → 输出 y₁
+"爱"    →    q₂ ───────→ 与所有 k 计算相似度 → 加权求和 v → 输出 y₂
+"北京"  →    q₃ ───────→ 与所有 k 计算相似度 → 加权求和 v → 输出 y₃
+
+┌────────────────────────────────────────────────────────┐
+│  Self-Attention: Q, K, V 都来自同一个序列 X            │
+│                                                        │
+│  Q = X @ W_Q                                           │
+│  K = X @ W_K    ← 同一个 X！                           │
+│  V = X @ W_V                                           │
+│                                                        │
+│  Attention(Q, K, V) = softmax(QKᵀ/√d) × V             │
+└────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>代码示例</h3>
+<pre><code>def self_attention(x, W_q, W_k, W_v):
+    """
+    x: 输入序列 (seq_len, d_model)
+    """
+    Q = x @ W_q  # Query 来自 x
+    K = x @ W_k  # Key 来自 x
+    V = x @ W_v  # Value 来自 x
+    
+    scores = Q @ K.T / sqrt(d_k)
+    weights = softmax(scores, dim=-1)
+    output = weights @ V
+    
+    return output
+</code></pre>
+
+<hr>
+
+<h2>🟢 Cross-Attention（交叉注意力）</h2>
+
+<h3>核心思想</h3>
+<p>一个序列（比如文本）去"查询"另一个序列（比如图像），实现<span class="highlight">跨模态信息融合</span>。</p>
+
+<div class="diagram">
+<pre>
+图像特征: Image = [img₁, img₂, ..., img₁₉₆]  (196 个 patch)
+文本序列: Text = ["Describe", "this", "image"]
+
+Cross-Attention:
+              Q(来自Text)   K,V(来自Image)
+                  ↓              ↓
+"Describe" →    q₁ ─────────→ 与所有 img_k 计算相似度
+                              → 找到最相关的图像区域
+                              → 加权求和 img_v
+                              → 输出融合后的特征
+
+┌────────────────────────────────────────────────────────┐
+│  Cross-Attention: Q 来自序列 A，K/V 来自序列 B         │
+│                                                        │
+│  Q = Text @ W_Q    ← 来自文本                          │
+│  K = Image @ W_K   ← 来自图像                          │
+│  V = Image @ W_V   ← 来自图像                          │
+│                                                        │
+│  Attention(Q, K, V) = softmax(QKᵀ/√d) × V             │
+│                                                        │
+│  效果：文本的每个 token 都能"看到"整张图像              │
+└────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>VLM 中的应用</h3>
+<div class="diagram">
+<pre>
+┌─────────────────────────────────────────────────────────────┐
+│                  VLM Cross-Attention                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌─────────────┐              ┌─────────────┐             │
+│   │   Image     │              │    Text     │             │
+│   │  Encoder    │              │   Decoder   │             │
+│   │  (ViT)      │              │   (LLM)     │             │
+│   └──────┬──────┘              └──────┬──────┘             │
+│          │                            │                     │
+│          │  K, V                      │  Q                  │
+│          │                            │                     │
+│          └────────────┬───────────────┘                     │
+│                       │                                     │
+│                       ▼                                     │
+│              ┌─────────────────┐                           │
+│              │ Cross-Attention │                           │
+│              │                 │                           │
+│              │ "这个词应该    │                           │
+│              │  关注图像的    │                           │
+│              │  哪个区域？"   │                           │
+│              └────────┬────────┘                           │
+│                       │                                     │
+│                       ▼                                     │
+│              融合后的文本特征                               │
+│              (带有视觉信息)                                 │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>代码示例</h3>
+<pre><code>def cross_attention(text_features, image_features, W_q, W_k, W_v):
+    """
+    text_features: 文本序列 (text_len, d_model)
+    image_features: 图像特征 (num_patches, d_model)
+    """
+    Q = text_features @ W_q   # Query 来自文本
+    K = image_features @ W_k  # Key 来自图像
+    V = image_features @ W_v  # Value 来自图像
+    
+    # 文本的每个 token 都去图像中"查询"
+    scores = Q @ K.T / sqrt(d_k)  # (text_len, num_patches)
+    weights = softmax(scores, dim=-1)
+    output = weights @ V  # (text_len, d_model)
+    
+    return output  # 融合了视觉信息的文本特征
+</code></pre>
+
+<hr>
+
+<h2>🔁 自回归（Autoregressive）</h2>
+
+<h3>什么是自回归？</h3>
+<p>生成序列时，<span class="highlight">一个一个 token 地生成</span>，每次生成都依赖于之前已生成的所有 token。</p>
+
+<div class="diagram">
+<pre>
+┌────────────────────────────────────────────────────────────┐
+│                    自回归生成过程                           │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│  Step 1: 输入 "What is"                                    │
+│          → 模型预测下一个词 → "the"                         │
+│                                                            │
+│  Step 2: 输入 "What is the"                                │
+│          → 模型预测下一个词 → "capital"                     │
+│                                                            │
+│  Step 3: 输入 "What is the capital"                        │
+│          → 模型预测下一个词 → "of"                          │
+│                                                            │
+│  Step 4: 输入 "What is the capital of"                     │
+│          → 模型预测下一个词 → "France"                      │
+│                                                            │
+│  Step 5: 输入 "What is the capital of France"              │
+│          → 模型预测下一个词 → "?"                           │
+│                                                            │
+│  ✅ 最终输出: "What is the capital of France?"             │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+
+数学表示:
+P(x₁, x₂, ..., xₙ) = P(x₁) × P(x₂|x₁) × P(x₃|x₁,x₂) × ...
+
+每个 token 的概率都依赖于之前所有 token！
+</pre>
+</div>
+
+<h3>Causal Mask（因果掩码）</h3>
+<p>为了实现自回归，需要用 mask 防止"偷看"未来的 token：</p>
+<pre><code># Causal Mask 示例 (4 个 token)
+#      t₁  t₂  t₃  t₄
+# t₁ [  1   0   0   0 ]  ← t₁ 只能看 t₁
+# t₂ [  1   1   0   0 ]  ← t₂ 能看 t₁, t₂
+# t₃ [  1   1   1   0 ]  ← t₃ 能看 t₁, t₂, t₃
+# t₄ [  1   1   1   1 ]  ← t₄ 能看所有
+
+mask = torch.tril(torch.ones(seq_len, seq_len))
+# 下三角矩阵：1 表示可以看到，0 表示不能看到
+</code></pre>
+
+<hr>
+
+<h2>🤔 LLM 和 VLM 中的应用</h2>
+
+<h3>LLM（如 GPT）</h3>
+<ul>
+<li>✅ 使用 <strong>Self-Attention + Causal Mask</strong>（自回归）</li>
+<li>✅ 文本生成是自回归的</li>
+<li>❌ 不使用 Cross-Attention（纯文本模型）</li>
+</ul>
+
+<h3>VLM（如 LLaVA）</h3>
+<ul>
+<li>✅ 图像编码器：Self-Attention（ViT）</li>
+<li>✅ 文本解码器：Self-Attention + Causal Mask（自回归生成）</li>
+<li>✅ 图文融合：Cross-Attention 或 直接拼接</li>
+<li>✅ <strong>文本输出是自回归的</strong></li>
+</ul>
+
+<h3>轨迹预测（如 π0）</h3>
+<ul>
+<li>❌ 通常<strong>不是自回归</strong></li>
+<li>✅ 使用 Flow Matching 或 Diffusion</li>
+<li>✅ 一次性生成整条轨迹，不是一步一步</li>
+</ul>
+
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>是否自回归</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LLM 文本生成</td>
+<td>✅ 是</td>
+<td>语言天然是序列的</td>
+</tr>
+<tr>
+<td>VLM 文本输出</td>
+<td>✅ 是</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>图像生成</td>
+<td>❌/✅</td>
+<td>Diffusion 不是，PixelCNN 是</td>
+</tr>
+<tr>
+<td>轨迹预测</td>
+<td>❌ 通常不是</td>
+<td>需要全局规划，非逐步</td>
+</tr>
+<tr>
+<td>机器翻译</td>
+<td>✅ 是</td>
+<td>Decoder 自回归生成</td>
+</tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>🎯 总结图</h2>
+
+<div class="diagram">
+<pre>
+┌─────────────────────────────────────────────────────────────┐
+│                    Transformer 架构总览                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │                    ENCODER                           │  │
+│  │  (如 BERT, ViT)                                      │  │
+│  │                                                      │  │
+│  │  ┌────────────────────────────────────────────────┐  │  │
+│  │  │         Self-Attention                         │  │  │
+│  │  │         (双向，无 mask)                         │  │  │
+│  │  │         每个位置可以看所有位置                  │  │  │
+│  │  └────────────────────────────────────────────────┘  │  │
+│  └───────────────────────┬──────────────────────────────┘  │
+│                          │ 编码后的表示                     │
+│                          ▼                                  │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │                    DECODER                           │  │
+│  │  (如 GPT, LLM)                                       │  │
+│  │                                                      │  │
+│  │  ┌────────────────────────────────────────────────┐  │  │
+│  │  │  Causal Self-Attention                         │  │  │
+│  │  │  (单向，带 mask)                               │  │  │
+│  │  │  只能看之前的位置 → 自回归                      │  │  │
+│  │  └────────────────────────────────────────────────┘  │  │
+│  │                          ↓                            │  │
+│  │  ┌────────────────────────────────────────────────┐  │  │
+│  │  │  Cross-Attention (可选)                        │  │  │
+│  │  │  Q 来自 Decoder                                │  │  │
+│  │  │  K, V 来自 Encoder                             │  │  │
+│  │  │  → 融合 Encoder 的信息                         │  │  │
+│  │  └────────────────────────────────────────────────┘  │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<hr>
+<p>📝 <strong>Last updated:</strong> 2026-03-01</p>
+
+    </div>
+</body>
+</html>

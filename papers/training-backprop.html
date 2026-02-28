@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformer 训练原理：Forward, Backward, 链式法则与自动微分</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; padding: 40px 20px; line-height: 1.8; }
+        .container { max-width: 1000px; margin: 0 auto; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #00d9ff; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(0,217,255,0.3); }
+        h2 { color: #00d9ff; margin: 30px 0 15px; }
+        h3 { color: #00ff88; margin: 25px 0 10px; }
+        p { margin: 10px 0; }
+        a { color: #00d9ff; text-decoration: none; }
+        code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; }
+        pre { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00d9ff; background: rgba(0,0,0,0.2); }
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+        blockquote { border-left: 3px solid #00d9ff; padding-left: 20px; margin: 15px 0; color: #aaa; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 8px 16px; background: rgba(0,217,255,0.2); border-radius: 6px; }
+        .diagram { background: rgba(0,0,0,0.3); padding: 25px; border-radius: 12px; margin: 20px 0; overflow-x: auto; }
+        .highlight { color: #00ff88; font-weight: bold; }
+        .math { color: #ffcc00; font-family: 'Times New Roman', serif; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← 返回首页</a>
+        <h1>⚙️ Transformer 训练原理</h1>
+<p><strong>主题:</strong> Forward, Backward, 链式法则与自动微分</p>
+
+<hr>
+
+<h2>🎯 训练的本质</h2>
+<blockquote>
+训练神经网络 = 找到一组参数 θ，使得损失函数 L(θ) 最小化
+</blockquote>
+
+<div class="diagram">
+<pre>
+┌────────────────────────────────────────────────────────────────┐
+│                      训练循环                                   │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐              │
+│   │  Input   │ ──→ │ Forward  │ ──→ │   Loss   │              │
+│   │   Data   │     │   Pass   │     │ Function │              │
+│   └──────────┘     └──────────┘     └────┬─────┘              │
+│                                          │                     │
+│                                          ▼                     │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐              │
+│   │  Update  │ ←── │ Backward │ ←── │ Compute  │              │
+│   │  Params  │     │   Pass   │     │ Gradient │              │
+│   └──────────┘     └──────────┘     └──────────┘              │
+│        │                                                       │
+│        └────────────────── 重复 ──────────────────→            │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<hr>
+
+<h2>➡️ Forward Pass（前向传播）</h2>
+
+<h3>什么是 Forward？</h3>
+<p>从输入到输出，<span class="highlight">逐层计算</span>，得到预测结果。</p>
+
+<div class="diagram">
+<pre>
+输入 x
+   │
+   ▼
+┌──────────────┐
+│   Layer 1    │  z₁ = W₁x + b₁
+│   (Linear)   │  a₁ = ReLU(z₁)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│   Layer 2    │  z₂ = W₂a₁ + b₂
+│   (Linear)   │  a₂ = ReLU(z₂)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│   Output     │  ŷ = softmax(W₃a₂ + b₃)
+│   Layer      │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│    Loss      │  L = CrossEntropy(ŷ, y)
+└──────────────┘
+</pre>
+</div>
+
+<h3>数学表示</h3>
+<pre><code># Forward pass 的数学计算
+z₁ = W₁ @ x + b₁        # 线性变换
+a₁ = max(0, z₁)         # ReLU 激活
+z₂ = W₂ @ a₁ + b₂       # 线性变换
+a₂ = max(0, z₂)         # ReLU 激活
+ŷ  = softmax(W₃ @ a₂ + b₃)  # 输出概率
+L  = -Σ y_i * log(ŷ_i)  # 交叉熵损失
+</code></pre>
+
+<hr>
+
+<h2>⬅️ Backward Pass（反向传播）</h2>
+
+<h3>什么是 Backward？</h3>
+<p>从损失函数出发，<span class="highlight">逆向计算每个参数对 Loss 的影响</span>（梯度）。</p>
+
+<div class="diagram">
+<pre>
+                                        ∂L/∂L = 1
+                                           │
+┌──────────────┐                           ▼
+│    Loss      │  ←─────────────────────────
+└──────────────┘
+       ↑
+       │ ∂L/∂ŷ
+       │
+┌──────────────┐
+│   Output     │  ∂L/∂W₃ = ∂L/∂ŷ × ∂ŷ/∂W₃
+│   Layer      │  ← 计算 W₃ 的梯度
+└──────────────┘
+       ↑
+       │ ∂L/∂a₂
+       │
+┌──────────────┐
+│   Layer 2    │  ∂L/∂W₂ = ∂L/∂a₂ × ∂a₂/∂z₂ × ∂z₂/∂W₂
+│   (Linear)   │  ← 计算 W₂ 的梯度
+└──────────────┘
+       ↑
+       │ ∂L/∂a₁
+       │
+┌──────────────┐
+│   Layer 1    │  ∂L/∂W₁ = ∂L/∂a₁ × ∂a₁/∂z₁ × ∂z₁/∂W₁
+│   (Linear)   │  ← 计算 W₁ 的梯度
+└──────────────┘
+
+关键：梯度从 Loss 反向流动，逐层计算！
+</pre>
+</div>
+
+<hr>
+
+<h2>⛓️ 链式法则（Chain Rule）</h2>
+
+<h3>数学基础</h3>
+<p>如果 <span class="math">y = f(g(x))</span>，那么：</p>
+<pre><code>dy/dx = dy/dg × dg/dx
+
+# 即：复合函数的导数 = 外层导数 × 内层导数
+</code></pre>
+
+<h3>深度学习中的链式法则</h3>
+<div class="diagram">
+<pre>
+假设网络: x → [Layer1] → a₁ → [Layer2] → a₂ → [Loss] → L
+
+要计算 ∂L/∂W₁ (Layer1 参数的梯度):
+
+∂L     ∂L     ∂a₂    ∂a₁
+─── = ─── × ──── × ────
+∂W₁   ∂a₂    ∂a₁    ∂W₁
+       │       │       │
+       │       │       └─ Layer1 的局部梯度
+       │       └───────── Layer2 的局部梯度  
+       └───────────────── Loss 对 Layer2 输出的梯度
+
+这就是为什么叫 "反向传播"：
+梯度从 Loss 一层层往回传递！
+</pre>
+</div>
+
+<h3>具体例子</h3>
+<pre><code># 假设只有一层: ŷ = σ(Wx + b)
+# Loss: L = (y - ŷ)²
+
+# Forward:
+z = W @ x + b
+ŷ = sigmoid(z)
+L = (y - ŷ)²
+
+# Backward (链式法则):
+∂L/∂ŷ = -2(y - ŷ)
+∂ŷ/∂z = σ(z)(1 - σ(z))    # sigmoid 导数
+∂z/∂W = x
+∂z/∂b = 1
+
+# 最终梯度:
+∂L/∂W = ∂L/∂ŷ × ∂ŷ/∂z × ∂z/∂W
+      = -2(y - ŷ) × σ(z)(1-σ(z)) × x
+
+∂L/∂b = ∂L/∂ŷ × ∂ŷ/∂z × ∂z/∂b
+      = -2(y - ŷ) × σ(z)(1-σ(z)) × 1
+</code></pre>
+
+<hr>
+
+<h2>🤖 自动微分（Automatic Differentiation）</h2>
+
+<h3>什么是自动微分？</h3>
+<p>让<span class="highlight">程序自动计算梯度</span>，而不是人工推导公式。</p>
+
+<h3>计算图（Computational Graph）</h3>
+<div class="diagram">
+<pre>
+代码: L = (W @ x + b - y) ** 2
+
+自动构建计算图:
+
+         x        W           y
+         │        │           │
+         └───┬────┘           │
+             │                │
+             ▼                │
+          [matmul]            │
+             │                │
+             ▼                │
+       z = W @ x              │
+             │                │
+         b ──┼────────────────┼
+             │                │
+             ▼                │
+          [add]               │
+             │                │
+             ▼                │
+       a = z + b              │
+             │                │
+             └───────┬────────┘
+                     │
+                     ▼
+                  [sub]
+                     │
+                     ▼
+                 e = a - y
+                     │
+                     ▼
+                  [pow2]
+                     │
+                     ▼
+                L = e²
+
+每个节点记住：
+1. 如何计算 forward
+2. 如何计算 backward (局部梯度)
+</pre>
+</div>
+
+<h3>PyTorch 自动微分示例</h3>
+<pre><code>import torch
+
+# 定义参数（requires_grad=True 表示需要计算梯度）
+W = torch.randn(10, 5, requires_grad=True)
+b = torch.randn(10, requires_grad=True)
+x = torch.randn(5)
+y = torch.randn(10)
+
+# Forward（PyTorch 自动记录计算图）
+z = W @ x + b
+loss = ((z - y) ** 2).sum()
+
+# Backward（PyTorch 自动计算所有梯度）
+loss.backward()
+
+# 梯度已经自动计算好了！
+print(W.grad)  # ∂L/∂W
+print(b.grad)  # ∂L/∂b
+</code></pre>
+
+<h3>自动微分 vs 手动计算</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>手动推导</th>
+<th>自动微分</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>工作量</strong></td>
+<td>推导公式、易错</td>
+<td>自动完成</td>
+</tr>
+<tr>
+<td><strong>灵活性</strong></td>
+<td>改模型要重新推导</td>
+<td>改代码即可</td>
+</tr>
+<tr>
+<td><strong>效率</strong></td>
+<td>可能更优化</td>
+<td>通用但高效</td>
+</tr>
+<tr>
+<td><strong>适用</strong></td>
+<td>简单模型、教学</td>
+<td>任何复杂模型</td>
+</tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>🔧 Backbone vs Task Head 训练区别</h2>
+
+<div class="diagram">
+<pre>
+┌────────────────────────────────────────────────────────────────┐
+│                    训练策略对比                                 │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  策略 1: 全量训练 (From Scratch)                               │
+│  ──────────────────────────────────────                        │
+│  • Backbone: 训练 ✅                                           │
+│  • Task Head: 训练 ✅                                          │
+│  • 需要大量数据和算力                                          │
+│                                                                │
+│  策略 2: 微调 (Fine-tuning)                                    │
+│  ──────────────────────────────────────                        │
+│  • Backbone: 用预训练权重初始化，小学习率微调 ✅               │
+│  • Task Head: 随机初始化，大学习率训练 ✅                      │
+│  • 最常用的策略                                                 │
+│                                                                │
+│  策略 3: 冻结 Backbone (Feature Extraction)                    │
+│  ──────────────────────────────────────                        │
+│  • Backbone: 冻结，不训练 ❄️                                   │
+│  • Task Head: 训练 ✅                                          │
+│  • 数据少时有效，防止过拟合                                    │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>代码示例</h3>
+<pre><code>import torch.nn as nn
+from torchvision.models import resnet50
+
+# 加载预训练 backbone
+backbone = resnet50(pretrained=True)
+backbone = nn.Sequential(*list(backbone.children())[:-1])  # 去掉最后的FC
+
+# 策略 2: 微调
+# Backbone 用小学习率
+backbone_params = backbone.parameters()
+
+# Task Head 用大学习率
+task_head = nn.Linear(2048, num_classes)
+head_params = task_head.parameters()
+
+# 不同学习率
+optimizer = torch.optim.Adam([
+    {'params': backbone_params, 'lr': 1e-5},   # Backbone: 小学习率
+    {'params': head_params, 'lr': 1e-3}        # Head: 大学习率
+])
+
+# 策略 3: 冻结 Backbone
+for param in backbone.parameters():
+    param.requires_grad = False  # 不计算梯度，不更新
+
+# 只训练 Task Head
+optimizer = torch.optim.Adam(task_head.parameters(), lr=1e-3)
+</code></pre>
+
+<hr>
+
+<h2>📚 推荐学习项目</h2>
+
+<h3>1. micrograd (Andrej Karpathy)</h3>
+<p>从零实现自动微分，只有 100 行代码！</p>
+<pre><code># GitHub: https://github.com/karpathy/micrograd
+
+# 核心思想：每个数值都是一个 Value 对象
+class Value:
+    def __init__(self, data, _children=(), _op=''):
+        self.data = data
+        self.grad = 0
+        self._backward = lambda: None
+        self._prev = set(_children)
+    
+    def __add__(self, other):
+        out = Value(self.data + other.data, (self, other), '+')
+        def _backward():
+            self.grad += out.grad
+            other.grad += out.grad
+        out._backward = _backward
+        return out
+    
+    # ... 类似实现 *, **, tanh, etc.
+    
+    def backward(self):
+        # 拓扑排序 + 反向传播
+        topo = []
+        visited = set()
+        def build_topo(v):
+            if v not in visited:
+                visited.add(v)
+                for child in v._prev:
+                    build_topo(child)
+                topo.append(v)
+        build_topo(self)
+        
+        self.grad = 1
+        for v in reversed(topo):
+            v._backward()
+</code></pre>
+
+<h3>2. nanoGPT (Andrej Karpathy)</h3>
+<p>最简 GPT 实现，学习 Transformer 训练。</p>
+<pre><code># GitHub: https://github.com/karpathy/nanoGPT
+
+# 包含完整的:
+# - Transformer 架构
+# - 训练循环
+# - 数据加载
+# - 采样生成
+</code></pre>
+
+<h3>3. PyTorch Tutorials</h3>
+<pre><code># 官方教程
+https://pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html
+
+# 内容:
+# - 什么是 tensor
+# - 计算图
+# - 自动微分
+# - backward() 的工作原理
+</code></pre>
+
+<h3>4. d2l (动手学深度学习)</h3>
+<pre><code># https://zh.d2l.ai/
+
+# 中文教程，包含:
+# - 数学推导
+# - 代码实现
+# - 可视化
+</code></pre>
+
+<hr>
+
+<h2>🎯 总结</h2>
+
+<div class="diagram">
+<pre>
+┌────────────────────────────────────────────────────────────────┐
+│                      关键概念总结                               │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  Forward Pass:  输入 → 层层计算 → 输出 → Loss                  │
+│                                                                │
+│  Backward Pass: Loss → 反向逐层计算梯度 → 更新参数             │
+│                                                                │
+│  链式法则:      复合函数求导 = 外层导数 × 内层导数             │
+│                 ∂L/∂W = ∂L/∂y × ∂y/∂z × ∂z/∂W                 │
+│                                                                │
+│  自动微分:      PyTorch 自动构建计算图，自动计算梯度           │
+│                 你只需要写 forward，backward 自动完成          │
+│                                                                │
+│  Backbone:      预训练的特征提取器，通常冻结或小学习率         │
+│  Task Head:     任务特定的输出层，通常大学习率训练             │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<hr>
+<p>📝 <strong>Last updated:</strong> 2026-03-01</p>
+
+    </div>
+</body>
+</html>
